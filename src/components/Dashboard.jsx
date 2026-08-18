@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, Users, Calendar, FileText, Activity } from 'lucide-react';
+import { LogOut, Users, Calendar, FileText } from 'lucide-react';
 import Logo from './Logo';
 
 export default function Dashboard({ user, onLogout }) {
