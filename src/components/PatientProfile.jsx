@@ -1,0 +1,797 @@
+import React, { useState, useEffect } from 'react';
+import {
+  User,
+  Phone,
+  Mail,
+  Calendar,
+  Activity,
+  Clock,
+  ArrowLeft,
+  AlertCircle,
+  MessageSquare,
+  Scale,
+  Plus,
+  FileText,
+  Save,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Sparkles
+} from 'lucide-react';
+import { fetchPatientById, updatePatient, fetchConsultas, fetchPlanosAlimentares } from '../services/patients';
+import WeightChart from './WeightChart';
+import ConsultaModal from './ConsultaModal';
+
+export default function PatientProfile({ patientId, onBackToList }) {
+  // Main Sections: 'dados' | 'consultas' | 'planos'
+  const [activeSection, setActiveSection] = useState('dados');
+
+  // Sub-tabs for Section 1 (Dados do Paciente): 'pessoal' | 'clinico' | 'habitos'
+  const [activeDataTab, setActiveDataTab] = useState('pessoal');
+
+  // Data States
+  const [patient, setPatient] = useState(null);
+  const [formData, setFormData] = useState(null);
+  const [consultas, setConsultas] = useState([]);
+  const [planos, setPlanos] = useState([]);
+
+  // UI States
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [expandedPlanId, setExpandedPlanId] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAllData() {
+      if (!patientId) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const [patientRes, consultasRes, planosRes] = await Promise.all([
+          fetchPatientById(patientId),
+          fetchConsultas(patientId),
+          fetchPlanosAlimentares(patientId)
+        ]);
+
+        if (isMounted) {
+          if (patientRes) {
+            setPatient(patientRes);
+            setFormData({
+              nome: patientRes.nome || '',
+              data_nascimento: patientRes.data_nascimento || '',
+              sexo: patientRes.sexo || 'Feminino',
+              telefone: patientRes.telefone || '',
+              whatsapp: patientRes.whatsapp || '',
+              email: patientRes.email || '',
+              peso_inicial: patientRes.peso_inicial ? String(patientRes.peso_inicial) : '',
+              altura: patientRes.altura ? String(patientRes.altura) : '',
+              objetivos: Array.isArray(patientRes.objetivos) ? patientRes.objetivos : [],
+              objetivo_texto: patientRes.objetivo_texto || '',
+              nivel_atividade: patientRes.nivel_atividade || 'Levemente ativo',
+              patologias: Array.isArray(patientRes.patologias) ? patientRes.patologias : [],
+              restricoes_alimentares: Array.isArray(patientRes.restricoes_alimentares) ? patientRes.restricoes_alimentares : [],
+              alergias: Array.isArray(patientRes.alergias) ? patientRes.alergias : [],
+              medicamentos: patientRes.medicamentos || '',
+              suplementos: patientRes.suplementos || '',
+              refeicoes_por_dia: patientRes.refeicoes_por_dia ? String(patientRes.refeicoes_por_dia) : '4',
+              horario_acorda: patientRes.horario_acorda || '',
+              horario_dorme: patientRes.horario_dorme || '',
+              litros_agua: patientRes.litros_agua ? String(patientRes.litros_agua) : '2',
+              atividade_fisica: Boolean(patientRes.atividade_fisica),
+              atividade_fisica_descricao: patientRes.atividade_fisica_descricao || '',
+              observacoes: patientRes.observacoes || ''
+            });
+          } else {
+            setError('Paciente não encontrado.');
+          }
+
+          setConsultas(consultasRes || []);
+          setPlanos(planosRes || []);
+        }
+      } catch (e) {
+        console.error(e);
+        if (isMounted) setError('Erro ao carregar prontuário do paciente.');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadAllData();
+    return () => { isMounted = false; };
+  }, [patientId]);
+
+  const reloadPatientData = async () => {
+    if (!patientId) return;
+    try {
+      const [patientRes, consultasRes, planosRes] = await Promise.all([
+        fetchPatientById(patientId),
+        fetchConsultas(patientId),
+        fetchPlanosAlimentares(patientId)
+      ]);
+      if (patientRes) setPatient(patientRes);
+      setConsultas(consultasRes || []);
+      setPlanos(planosRes || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Handle saving edited patient fields
+  const handleSavePatientEdits = async (e) => {
+    if (e) e.preventDefault();
+    setSuccessMsg('');
+    setError(null);
+
+    if (!formData.nome.trim()) {
+      setError('O nome completo é obrigatório.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const updated = await updatePatient(patientId, formData);
+      setPatient(updated);
+      setSuccessMsg('Alterações salvas com sucesso!');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Erro ao salvar alterações.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Helper calculation for Age
+  const calculateAge = (birthDateStr) => {
+    if (!birthDateStr) return null;
+    try {
+      const birth = new Date(birthDateStr);
+      if (isNaN(birth.getTime())) return null;
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      return age >= 0 ? `${age} anos` : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Helper calculation for IMC
+  const getIMCDetails = (peso, altura) => {
+    const p = parseFloat(peso);
+    const a = parseFloat(altura);
+    if (!p || !a || p <= 0 || a <= 0) return null;
+
+    const alturaM = a / 100;
+    const imc = p / (alturaM * alturaM);
+    const val = imc.toFixed(1);
+
+    let label = '';
+    let colorClass = '';
+
+    if (imc < 18.5) {
+      label = 'Abaixo do peso';
+      colorClass = 'badge-warning';
+    } else if (imc < 25.0) {
+      label = 'Peso normal (Eutrofia)';
+      colorClass = 'badge-success';
+    } else if (imc < 30.0) {
+      label = 'Sobrepeso';
+      colorClass = 'badge-warning';
+    } else if (imc < 35.0) {
+      label = 'Obesidade I';
+      colorClass = 'badge-danger';
+    } else if (imc < 40.0) {
+      label = 'Obesidade II';
+      colorClass = 'badge-danger';
+    } else {
+      label = 'Obesidade III';
+      colorClass = 'badge-danger';
+    }
+
+    return { val, label, colorClass };
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'Não informado';
+    try {
+      const date = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00`);
+      if (isNaN(date.getTime())) return dateStr;
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="page-container animate-fade-in">
+        <div className="loading-card">
+          <div className="spinner-green"></div>
+          <p>Carregando prontuário do paciente...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !patient) {
+    return (
+      <div className="page-container animate-fade-in">
+        <button type="button" className="btn-back-link" onClick={onBackToList}>
+          ← Voltar para a Lista de Pacientes
+        </button>
+        <div className="error-card">
+          <AlertCircle size={24} color="#dc2626" />
+          <p>{error}</p>
+          <button type="button" className="btn-secondary" onClick={onBackToList}>
+            Voltar para Pacientes
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const age = calculateAge(formData?.data_nascimento || patient?.data_nascimento);
+  const imcData = getIMCDetails(formData?.peso_inicial || patient?.peso_inicial, formData?.altura || patient?.altura);
+  const cleanWhatsapp = formData?.whatsapp ? formData.whatsapp.replace(/\D/g, '') : '';
+
+  return (
+    <div className="page-container animate-fade-in">
+      {/* Top Bar Back Link */}
+      <div className="profile-top-bar">
+        <button type="button" className="btn-back-link" onClick={onBackToList}>
+          <ArrowLeft size={16} /> Voltar para a Lista de Pacientes
+        </button>
+      </div>
+
+      {/* Patient Header Card */}
+      <div className="patient-hero-card">
+        <div className="hero-avatar">{formData?.nome?.trim()[0]?.toUpperCase() || 'P'}</div>
+        <div className="hero-details">
+          <div className="hero-name-row">
+            <h1 className="hero-name">{patient.nome}</h1>
+            {patient.sexo && <span className="meta-pill">{patient.sexo}</span>}
+            {age && <span className="meta-pill">{age}</span>}
+          </div>
+
+          <div className="hero-contact-row">
+            {patient.telefone && (
+              <span className="contact-item">
+                <Phone size={14} /> {patient.telefone}
+              </span>
+            )}
+            {patient.whatsapp && (
+              <a
+                href={`https://wa.me/55${cleanWhatsapp}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="contact-item whatsapp-link"
+              >
+                <MessageSquare size={14} /> WhatsApp ({patient.whatsapp})
+              </a>
+            )}
+            {patient.email && (
+              <span className="contact-item">
+                <Mail size={14} /> {patient.email}
+              </span>
+            )}
+            <span className="contact-item">
+              <Calendar size={14} /> Última consulta: {formatDate(patient.data_ultima_consulta)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Section Navigation Tabs (3 Sections) */}
+      <div className="profile-main-tabs">
+        <button
+          type="button"
+          className={`main-tab-btn ${activeSection === 'dados' ? 'active' : ''}`}
+          onClick={() => setActiveSection('dados')}
+        >
+          <User size={18} />
+          <span>1. Dados do Paciente</span>
+        </button>
+
+        <button
+          type="button"
+          className={`main-tab-btn ${activeSection === 'consultas' ? 'active' : ''}`}
+          onClick={() => setActiveSection('consultas')}
+        >
+          <Activity size={18} />
+          <span>2. Consultas</span>
+          <span className="count-badge">{consultas.length}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`main-tab-btn ${activeSection === 'planos' ? 'active' : ''}`}
+          onClick={() => setActiveSection('planos')}
+        >
+          <FileText size={18} />
+          <span>3. Planos Alimentares</span>
+          <span className="count-badge">{planos.length}</span>
+        </button>
+      </div>
+
+      {/* Success / Error Banners */}
+      {successMsg && (
+        <div className="success-alert animate-fade-in">
+          <CheckCircle2 size={18} />
+          <span>{successMsg}</span>
+        </div>
+      )}
+      {error && (
+        <div className="error-alert animate-shake">
+          <AlertCircle size={18} />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* SECTION 1: DADOS DO PACIENTE (Editable 3-tab form) */}
+      {activeSection === 'dados' && (
+        <div className="profile-section-card animate-fade-in">
+          {/* Sub-tabs header */}
+          <div className="subtabs-header">
+            <button
+              type="button"
+              className={`subtab-btn ${activeDataTab === 'pessoal' ? 'active' : ''}`}
+              onClick={() => setActiveDataTab('pessoal')}
+            >
+              <User size={16} /> Dados Pessoais
+            </button>
+            <button
+              type="button"
+              className={`subtab-btn ${activeDataTab === 'clinico' ? 'active' : ''}`}
+              onClick={() => setActiveDataTab('clinico')}
+            >
+              <Activity size={16} /> Avaliação Clínica
+            </button>
+            <button
+              type="button"
+              className={`subtab-btn ${activeDataTab === 'habitos' ? 'active' : ''}`}
+              onClick={() => setActiveDataTab('habitos')}
+            >
+              <Clock size={16} /> Hábitos e Rotina
+            </button>
+          </div>
+
+          <form onSubmit={handleSavePatientEdits} className="subtab-form-content">
+            {/* SUB-TAB 1: PESSOAL */}
+            {activeDataTab === 'pessoal' && (
+              <div className="form-grid animate-fade-in">
+                <div className="form-group full-width">
+                  <label className="required-label">Nome completo</label>
+                  <input
+                    type="text"
+                    value={formData.nome}
+                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Data de nascimento</label>
+                  <div className="input-with-calc">
+                    <input
+                      type="date"
+                      value={formData.data_nascimento}
+                      onChange={(e) => setFormData({ ...formData, data_nascimento: e.target.value })}
+                    />
+                    {age && <span className="calc-badge">{age}</span>}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Sexo</label>
+                  <select
+                    value={formData.sexo}
+                    onChange={(e) => setFormData({ ...formData, sexo: e.target.value })}
+                  >
+                    <option value="Feminino">Feminino</option>
+                    <option value="Masculino">Masculino</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Telefone</label>
+                  <input
+                    type="text"
+                    value={formData.telefone}
+                    onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>WhatsApp</label>
+                  <input
+                    type="text"
+                    value={formData.whatsapp}
+                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group full-width">
+                  <label>E-mail</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* SUB-TAB 2: CLÍNICO */}
+            {activeDataTab === 'clinico' && (
+              <div className="form-grid animate-fade-in">
+                <div className="form-group">
+                  <label>Peso atual (kg)</label>
+                  <div className="unit-input-wrapper">
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.peso_inicial}
+                      onChange={(e) => setFormData({ ...formData, peso_inicial: e.target.value })}
+                    />
+                    <span className="unit-suffix">kg</span>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Altura (cm)</label>
+                  <div className="unit-input-wrapper">
+                    <input
+                      type="number"
+                      value={formData.altura}
+                      onChange={(e) => setFormData({ ...formData, altura: e.target.value })}
+                    />
+                    <span className="unit-suffix">cm</span>
+                  </div>
+                </div>
+
+                {/* IMC Display */}
+                <div className="form-group full-width">
+                  <label>IMC (Calculado)</label>
+                  <div className="imc-display-box">
+                    {imcData ? (
+                      <div className="imc-result">
+                        <span className="imc-number">{imcData.val} kg/m²</span>
+                        <span className={`imc-badge ${imcData.colorClass}`}>{imcData.label}</span>
+                      </div>
+                    ) : (
+                      <span className="imc-placeholder">Informe peso e altura para calcular o IMC.</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="form-group full-width">
+                  <label>Objetivo principal / observação de objetivo</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Emagrecer e ganhar massa magra..."
+                    value={formData.objetivo_texto}
+                    onChange={(e) => setFormData({ ...formData, objetivo_texto: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group full-width">
+                  <label>Nível de atividade física</label>
+                  <select
+                    value={formData.nivel_atividade}
+                    onChange={(e) => setFormData({ ...formData, nivel_atividade: e.target.value })}
+                  >
+                    <option value="Sedentário">Sedentário (pouco ou nenhum exercício)</option>
+                    <option value="Levemente ativo">Levemente ativo (exercício leve 1-3 dias/sem)</option>
+                    <option value="Moderadamente ativo">Moderadamente ativo (exercício 3-5 dias/sem)</option>
+                    <option value="Muito ativo">Muito ativo (exercício pesado 6-7 dias/sem)</option>
+                    <option value="Extremamente ativo">Extremamente ativo (exercício muito pesado ou atleta)</option>
+                  </select>
+                </div>
+
+                <div className="form-group full-width">
+                  <label>Medicamentos contínuos</label>
+                  <textarea
+                    rows="2"
+                    value={formData.medicamentos}
+                    onChange={(e) => setFormData({ ...formData, medicamentos: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group full-width">
+                  <label>Suplementos em uso</label>
+                  <textarea
+                    rows="2"
+                    value={formData.suplementos}
+                    onChange={(e) => setFormData({ ...formData, suplementos: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* SUB-TAB 3: HÁBITOS */}
+            {activeDataTab === 'habitos' && (
+              <div className="form-grid animate-fade-in">
+                <div className="form-group">
+                  <label>Refeições por dia</label>
+                  <input
+                    type="number"
+                    value={formData.refeicoes_por_dia}
+                    onChange={(e) => setFormData({ ...formData, refeicoes_por_dia: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Água por dia (litros)</label>
+                  <div className="unit-input-wrapper">
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={formData.litros_agua}
+                      onChange={(e) => setFormData({ ...formData, litros_agua: e.target.value })}
+                    />
+                    <span className="unit-suffix">litros</span>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Horário que acorda</label>
+                  <input
+                    type="text"
+                    value={formData.horario_acorda}
+                    onChange={(e) => setFormData({ ...formData, horario_acorda: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Horário que dorme</label>
+                  <input
+                    type="text"
+                    value={formData.horario_dorme}
+                    onChange={(e) => setFormData({ ...formData, horario_dorme: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group full-width">
+                  <label>Pratica atividade física?</label>
+                  <div className="radio-toggle-group">
+                    <button
+                      type="button"
+                      className={`toggle-btn ${formData.atividade_fisica ? 'active' : ''}`}
+                      onClick={() => setFormData({ ...formData, atividade_fisica: true })}
+                    >
+                      Sim
+                    </button>
+                    <button
+                      type="button"
+                      className={`toggle-btn ${!formData.atividade_fisica ? 'active' : ''}`}
+                      onClick={() => setFormData({ ...formData, atividade_fisica: false, atividade_fisica_descricao: '' })}
+                    >
+                      Não
+                    </button>
+                  </div>
+                </div>
+
+                {formData.atividade_fisica && (
+                  <div className="form-group full-width">
+                    <label>Qual atividade e frequência semanal?</label>
+                    <input
+                      type="text"
+                      value={formData.atividade_fisica_descricao}
+                      onChange={(e) => setFormData({ ...formData, atividade_fisica_descricao: e.target.value })}
+                    />
+                  </div>
+                )}
+
+                <div className="form-group full-width">
+                  <label>Observações gerais</label>
+                  <textarea
+                    rows="3"
+                    value={formData.observacoes}
+                    onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Save Changes Footer Button */}
+            <div className="subtab-form-footer">
+              <button type="submit" className="btn-primary-action btn-save-action" disabled={saving}>
+                {saving ? (
+                  <>
+                    <span className="spinner-sm"></span> Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} /> Salvar alterações
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* SECTION 2: CONSULTAS (Evolution Chart + Consultation Modal & History) */}
+      {activeSection === 'consultas' && (
+        <div className="consultas-section animate-fade-in">
+          {/* Top Bar with New Consultation Button */}
+          <div className="section-toolbar">
+            <h2 className="section-title">Histórico de Consultas & Evolução</h2>
+            <button
+              type="button"
+              className="btn-primary-action"
+              onClick={() => setModalOpen(true)}
+            >
+              <Plus size={18} />
+              <span>Nova Consulta</span>
+            </button>
+          </div>
+
+          {/* Weight Evolution Graph (Always visible) */}
+          <WeightChart consultas={consultas} />
+
+          {/* Consultation Cards List (Reverse Chronological) */}
+          <div className="consultas-list-card">
+            <h3 className="consultas-list-title">Consultas Realizadas ({consultas.length})</h3>
+
+            {consultas.length === 0 ? (
+              <div className="empty-dash-list" style={{ padding: '2rem' }}>
+                <p>Nenhuma consulta registrada para este paciente.</p>
+                <button
+                  type="button"
+                  className="btn-secondary mt-2"
+                  onClick={() => setModalOpen(true)}
+                >
+                  <Plus size={16} /> Cadastrar primeira consulta
+                </button>
+              </div>
+            ) : (
+              <div className="consultas-grid">
+                {consultas.map((c) => (
+                  <div key={c.id} className="consulta-card">
+                    <div className="consulta-card-header">
+                      <div className="consulta-date-badge">
+                        <Calendar size={16} />
+                        <span>{formatDate(c.data_consulta)}</span>
+                      </div>
+                      <div className="consulta-weight-pill">
+                        <Scale size={16} />
+                        <span>{c.peso} kg</span>
+                      </div>
+                    </div>
+
+                    <div className="consulta-card-body">
+                      <div className="consulta-metrics-row">
+                        {c.cintura && (
+                          <div className="c-metric">
+                            <span className="c-label">Cintura:</span>
+                            <span className="c-val">{c.cintura} cm</span>
+                          </div>
+                        )}
+                        {c.quadril && (
+                          <div className="c-metric">
+                            <span className="c-label">Quadril:</span>
+                            <span className="c-val">{c.quadril} cm</span>
+                          </div>
+                        )}
+                        {c.percentual_gordura && (
+                          <div className="c-metric">
+                            <span className="c-label">% Gordura:</span>
+                            <span className="c-val">{c.percentual_gordura}%</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {c.observacoes && (
+                        <div className="consulta-notes">
+                          <span className="notes-label">Observações:</span>
+                          <p>{c.observacoes}</p>
+                        </div>
+                      )}
+
+                      {c.proximo_retorno && (
+                        <div className="consulta-return-date">
+                          <span className="return-label">Próximo retorno agendado:</span>
+                          <span className="return-val">{formatDate(c.proximo_retorno)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 3: PLANOS ALIMENTARES */}
+      {activeSection === 'planos' && (
+        <div className="planos-section animate-fade-in">
+          <div className="section-toolbar">
+            <h2 className="section-title">Planos Alimentares</h2>
+            <button
+              type="button"
+              className="btn-primary-action btn-generate-plan"
+              onClick={() => alert('A geração de planos alimentares com IA será ativada no próximo prompt!')}
+            >
+              <Sparkles size={18} />
+              <span>Gerar Plano Alimentar</span>
+            </button>
+          </div>
+
+          <div className="planos-list-card">
+            {planos.length === 0 ? (
+              <div className="empty-state-card" style={{ padding: '3rem 2rem' }}>
+                <div className="empty-icon-circle">
+                  <FileText size={36} />
+                </div>
+                <h3>Nenhum plano alimentar gerado ainda</h3>
+                <p>Clique no botão "Gerar Plano Alimentar" acima para elaborar o primeiro plano nutricional deste paciente.</p>
+              </div>
+            ) : (
+              <div className="planos-history-list">
+                {planos.map((plan) => {
+                  const isExpanded = expandedPlanId === plan.id;
+                  return (
+                    <div key={plan.id} className="plano-item-card">
+                      <div
+                        className="plano-item-header"
+                        onClick={() => setExpandedPlanId(isExpanded ? null : plan.id)}
+                      >
+                        <div className="plano-header-info">
+                          <FileText size={20} className="text-emerald-600" />
+                          <div>
+                            <strong>Plano Alimentar de {formatDate(plan.created_at)}</strong>
+                            <span className="plano-date-sub">
+                              Gerado em {new Date(plan.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        </div>
+                        <button type="button" className="btn-expand-plan">
+                          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </button>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="plano-item-content animate-fade-in">
+                          <pre className="plano-json-view">
+                            {typeof plan.conteudo === 'string'
+                              ? plan.conteudo
+                              : JSON.stringify(plan.conteudo, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Nova Consulta */}
+      {modalOpen && (
+        <ConsultaModal
+          patientId={patientId}
+          onClose={() => setModalOpen(false)}
+          onConsultaCreated={() => {
+            reloadPatientData();
+          }}
+        />
+      )}
+    </div>
+  );
+}
