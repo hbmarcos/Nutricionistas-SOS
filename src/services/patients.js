@@ -13,7 +13,7 @@ function getSqlClient() {
     console.warn('[Nutricionistas-SOS] VITE_NEON_DATABASE_URL não configurada.');
     return null;
   }
-  return neon(DB_URL);
+  return neon(DB_URL, { disableWarningInBrowsers: true });
 }
 
 /**
@@ -72,6 +72,27 @@ function getLocalPlanos(patientId) {
     return all.filter(p => p.paciente_id === patientId || String(p.paciente_id) === String(patientId));
   } catch {
     return [];
+  }
+}
+
+function saveLocalPlano(newPlano) {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_PLANOS_KEY);
+    const all = raw ? JSON.parse(raw) : [];
+    localStorage.setItem(LOCAL_STORAGE_PLANOS_KEY, JSON.stringify([newPlano, ...all]));
+  } catch (e) {
+    console.warn('Erro ao salvar plano alimentar local:', e);
+  }
+}
+
+function deleteLocalPlano(planoId) {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_PLANOS_KEY);
+    const all = raw ? JSON.parse(raw) : [];
+    const filtered = all.filter(p => p.id !== planoId && String(p.id) !== String(planoId));
+    localStorage.setItem(LOCAL_STORAGE_PLANOS_KEY, JSON.stringify(filtered));
+  } catch (e) {
+    console.warn('Erro ao remover plano alimentar local:', e);
   }
 }
 
@@ -492,3 +513,133 @@ export async function fetchPlanosAlimentares(patientId) {
 
   return getLocalPlanos(patientId);
 }
+
+/**
+ * Salva um novo plano alimentar para o paciente no Neon DB
+ */
+export async function createPlanoAlimentar(patientId, conteudo) {
+  if (!patientId) throw new Error('ID do paciente não informado.');
+  if (!conteudo) throw new Error('O conteúdo do plano alimentar é obrigatório.');
+
+  const conteudoObj = typeof conteudo === 'string' ? JSON.parse(conteudo) : conteudo;
+  const sql = getSqlClient();
+  let newRecord = null;
+  const createdAt = new Date().toISOString();
+
+  if (sql) {
+    try {
+      const rows = await sql`
+        INSERT INTO planos_alimentares (
+          paciente_id, conteudo, created_at
+        ) VALUES (
+          ${patientId},
+          ${JSON.stringify(conteudoObj)},
+          ${createdAt}
+        )
+        RETURNING *;
+      `;
+      if (rows && rows.length > 0) {
+        newRecord = rows[0];
+      }
+    } catch (e) {
+      console.warn('[patients.js] Erro ao salvar plano alimentar no Neon DB, usando local:', e.message);
+    }
+  }
+
+  if (!newRecord) {
+    newRecord = {
+      id: 'local_p_' + Date.now(),
+      paciente_id: patientId,
+      conteudo: conteudoObj,
+      created_at: createdAt
+    };
+  }
+
+  saveLocalPlano(newRecord);
+  return newRecord;
+}
+
+/**
+ * Remove um plano alimentar
+ */
+export async function deletePlanoAlimentar(planoId, _patientId = null) {
+  if (!planoId) return false;
+  const sql = getSqlClient();
+
+  if (sql) {
+    try {
+      await sql`
+        DELETE FROM planos_alimentares WHERE id = ${planoId};
+      `;
+    } catch (e) {
+      console.warn('[patients.js] Erro ao deletar plano no Neon DB:', e.message);
+    }
+  }
+
+  deleteLocalPlano(planoId);
+  return true;
+}
+
+/**
+ * Busca estatísticas globais para o Dashboard
+ */
+export async function fetchDashboardStats(userEmail) {
+  const sql = getSqlClient();
+  let patientCount = 0;
+  let consultaCount = 0;
+  let planoCount = 0;
+
+  if (sql && userEmail) {
+    try {
+      const nutricionistaUuid = await getNutricionistaDbId(userEmail);
+      if (nutricionistaUuid) {
+        const patientsRes = await sql`
+          SELECT id FROM pacientes WHERE nutricionista_id = ${nutricionistaUuid};
+        `;
+        const patientIds = (patientsRes || []).map(p => p.id);
+        patientCount = patientIds.length;
+
+        if (patientIds.length > 0) {
+          const consultasRes = await sql`
+            SELECT COUNT(*)::int AS count FROM consultas WHERE paciente_id = ANY(${patientIds});
+          `;
+          consultaCount = consultasRes[0]?.count || 0;
+
+          const planosRes = await sql`
+            SELECT COUNT(*)::int AS count FROM planos_alimentares WHERE paciente_id = ANY(${patientIds});
+          `;
+          planoCount = planosRes[0]?.count || 0;
+        }
+
+        return { patientCount, consultaCount, planoCount };
+      }
+    } catch (e) {
+      console.warn('[patients.js] Erro ao buscar stats do Dashboard no Neon DB:', e.message);
+    }
+  }
+
+  // Fallback cache local
+  const localPatients = getLocalPatients().filter(p => !userEmail || p.user_email === userEmail);
+  patientCount = localPatients.length;
+  const pIds = new Set(localPatients.map(p => String(p.id)));
+
+  try {
+    const rawConsultas = localStorage.getItem(LOCAL_STORAGE_CONSULTAS_KEY);
+    const allConsultas = rawConsultas ? JSON.parse(rawConsultas) : [];
+    consultaCount = allConsultas.filter(c => pIds.has(String(c.paciente_id))).length;
+  } catch {
+    consultaCount = 0;
+  }
+
+  try {
+    const rawPlanos = localStorage.getItem(LOCAL_STORAGE_PLANOS_KEY);
+    const allPlanos = rawPlanos ? JSON.parse(rawPlanos) : [];
+    planoCount = allPlanos.filter(p => pIds.has(String(p.paciente_id))).length;
+  } catch {
+    planoCount = 0;
+  }
+
+  return { patientCount, consultaCount, planoCount };
+}
+
+

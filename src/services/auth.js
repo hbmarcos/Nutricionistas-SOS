@@ -14,7 +14,7 @@ async function salvarNutricionistaNoBanco(nome, email) {
       console.warn('[Nutricionistas-SOS] VITE_NEON_DATABASE_URL não configurada.');
       return;
     }
-    const sql = neon(dbUrl);
+    const sql = neon(dbUrl, { disableWarningInBrowsers: true });
     await sql`
       INSERT INTO nutricionistas (nome, email)
       VALUES (${nome.trim()}, ${email.trim()})
@@ -89,19 +89,30 @@ export async function signIn({ email, senha }) {
     throw new Error('Por favor, informe sua senha.');
   }
 
-  const res = await fetch(`${AUTH_URL}/sign-in/email`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: email.trim(),
-      password: senha,
-    }),
-  });
+  let res;
+  try {
+    res = await fetch(`${AUTH_URL}/sign-in/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim(),
+        password: senha,
+      }),
+    });
+  } catch {
+    throw new Error('Falha de conexão com o servidor de autenticação. Verifique sua internet.');
+  }
 
-  const data = await res.json();
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
 
   if (!res.ok) {
-    throw new Error('E-mail ou senha incorretos. Verifique suas credenciais.');
+    const errorMsg = data?.message || data?.error || 'E-mail ou senha incorretos. Verifique suas credenciais.';
+    throw new Error(errorMsg);
   }
 
   const sessionData = {

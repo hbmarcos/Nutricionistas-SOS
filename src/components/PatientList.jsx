@@ -32,25 +32,25 @@ export default function PatientList({ user, onNavigateToRegister, onSelectPatien
     return p.nome?.toLowerCase().includes(searchTerm.toLowerCase().trim());
   });
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return 'Sem consultas registradas';
+  const formatDate = (dateVal) => {
+    if (!dateVal) return 'Sem consultas registradas';
     try {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return 'Sem consultas registradas';
+      const date = dateVal instanceof Date ? dateVal : new Date(dateVal);
+      if (isNaN(date.getTime())) return typeof dateVal === 'string' ? dateVal : 'Sem consultas registradas';
       return date.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
       });
     } catch {
-      return 'Sem consultas registradas';
+      return typeof dateVal === 'string' ? dateVal : 'Sem consultas registradas';
     }
   };
 
-  const calculateAge = (birthDateStr) => {
-    if (!birthDateStr) return null;
+  const calculateAge = (birthDateVal) => {
+    if (!birthDateVal) return null;
     try {
-      const birth = new Date(birthDateStr);
+      const birth = birthDateVal instanceof Date ? birthDateVal : new Date(birthDateVal);
       if (isNaN(birth.getTime())) return null;
       const today = new Date();
       let age = today.getFullYear() - birth.getFullYear();
@@ -181,7 +181,7 @@ export default function PatientList({ user, onNavigateToRegister, onSelectPatien
               >
                 <div className="patient-card-header">
                   <div className="patient-avatar">
-                    {patient.nome.trim()[0].toUpperCase()}
+                    {(patient.nome || 'P').trim()[0]?.toUpperCase() || 'P'}
                   </div>
                   <div className="patient-card-info">
                     <h3 className="patient-name">{patient.nome}</h3>

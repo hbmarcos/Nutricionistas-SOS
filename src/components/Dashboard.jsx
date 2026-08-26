@@ -1,17 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Calendar, FileText, UserPlus, ArrowRight } from 'lucide-react';
-import { fetchPatients } from '../services/patients';
+import { fetchPatients, fetchDashboardStats } from '../services/patients';
 
 export default function Dashboard({ user, onChangeView }) {
   const [patientCount, setPatientCount] = useState(0);
+  const [consultaCount, setConsultaCount] = useState(0);
+  const [planoCount, setPlanoCount] = useState(0);
   const [recentPatients, setRecentPatients] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadStats() {
       try {
-        const patients = await fetchPatients(user?.email, user?.id);
-        setPatientCount(patients ? patients.length : 0);
+        const [patients, stats] = await Promise.all([
+          fetchPatients(user?.email, user?.id),
+          fetchDashboardStats(user?.email)
+        ]);
+        setPatientCount(stats?.patientCount ?? (patients ? patients.length : 0));
+        setConsultaCount(stats?.consultaCount ?? 0);
+        setPlanoCount(stats?.planoCount ?? 0);
         setRecentPatients(patients ? patients.slice(0, 3) : []);
       } catch (e) {
         console.error('Erro ao carregar estatísticas:', e);
@@ -73,8 +80,8 @@ export default function Dashboard({ user, onChangeView }) {
             <Calendar size={24} />
           </div>
           <div className="stat-info">
-            <span className="stat-number">0</span>
-            <span className="stat-title">Consultas Agendadas</span>
+            <span className="stat-number">{loading ? '...' : consultaCount}</span>
+            <span className="stat-title">Consultas Realizadas</span>
           </div>
         </div>
 
@@ -83,7 +90,7 @@ export default function Dashboard({ user, onChangeView }) {
             <FileText size={24} />
           </div>
           <div className="stat-info">
-            <span className="stat-number">0</span>
+            <span className="stat-number">{loading ? '...' : planoCount}</span>
             <span className="stat-title">Planos Alimentares</span>
           </div>
         </div>
@@ -164,7 +171,7 @@ export default function Dashboard({ user, onChangeView }) {
                     onClick={() => onChangeView('patient-profile', p.id)}
                   >
                     <div className="avatar-sm">
-                      {p.nome.trim()[0].toUpperCase()}
+                      {(p.nome || 'P').trim()[0]?.toUpperCase() || 'P'}
                     </div>
                     <div className="recent-info">
                       <span className="recent-name">{p.nome}</span>

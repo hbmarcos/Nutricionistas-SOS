@@ -75,15 +75,17 @@ export default function WeightChart({ consultas = [] }) {
         ` L ${points[points.length - 1].x},${svgHeight - paddingY} Z`
       : '';
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
+  const formatDate = (dateVal) => {
+    if (!dateVal) return '';
     try {
-      const parts = dateStr.split('T')[0].split('-');
-      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0].slice(2)}`;
+      const d = dateVal instanceof Date ? dateVal : new Date(dateVal);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+      }
     } catch {
       // ignore
     }
-    return dateStr;
+    return typeof dateVal === 'string' ? dateVal : '';
   };
 
   return (

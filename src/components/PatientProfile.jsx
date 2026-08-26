@@ -13,14 +13,24 @@ import {
   Plus,
   FileText,
   Save,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Sparkles
+  CheckCircle2
 } from 'lucide-react';
 import { fetchPatientById, updatePatient, fetchConsultas, fetchPlanosAlimentares } from '../services/patients';
 import WeightChart from './WeightChart';
 import ConsultaModal from './ConsultaModal';
+import MealPlanGenerator from './MealPlanGenerator';
+
+// Helper para formatar data de nascimento para input date (YYYY-MM-DD)
+function formatBirthDateForInput(val) {
+  if (!val) return '';
+  try {
+    if (val instanceof Date) return val.toISOString().split('T')[0];
+    const s = String(val);
+    return s.split('T')[0];
+  } catch {
+    return '';
+  }
+}
 
 export default function PatientProfile({ patientId, onBackToList }) {
   // Main Sections: 'dados' | 'consultas' | 'planos'
@@ -41,7 +51,6 @@ export default function PatientProfile({ patientId, onBackToList }) {
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [expandedPlanId, setExpandedPlanId] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -61,7 +70,7 @@ export default function PatientProfile({ patientId, onBackToList }) {
             setPatient(patientRes);
             setFormData({
               nome: patientRes.nome || '',
-              data_nascimento: patientRes.data_nascimento || '',
+              data_nascimento: formatBirthDateForInput(patientRes.data_nascimento),
               sexo: patientRes.sexo || 'Feminino',
               telefone: patientRes.telefone || '',
               whatsapp: patientRes.whatsapp || '',
@@ -111,7 +120,14 @@ export default function PatientProfile({ patientId, onBackToList }) {
         fetchConsultas(patientId),
         fetchPlanosAlimentares(patientId)
       ]);
-      if (patientRes) setPatient(patientRes);
+      if (patientRes) {
+        setPatient(patientRes);
+        setFormData((prev) => ({
+          ...prev,
+          nome: patientRes.nome || prev?.nome || '',
+          peso_inicial: patientRes.peso_inicial ? String(patientRes.peso_inicial) : prev?.peso_inicial || ''
+        }));
+      }
       setConsultas(consultasRes || []);
       setPlanos(planosRes || []);
     } catch (e) {
@@ -125,7 +141,7 @@ export default function PatientProfile({ patientId, onBackToList }) {
     setSuccessMsg('');
     setError(null);
 
-    if (!formData.nome.trim()) {
+    if (!formData || !formData.nome || !formData.nome.trim()) {
       setError('O nome completo é obrigatório.');
       return;
     }
@@ -145,10 +161,10 @@ export default function PatientProfile({ patientId, onBackToList }) {
   };
 
   // Helper calculation for Age
-  const calculateAge = (birthDateStr) => {
-    if (!birthDateStr) return null;
+  const calculateAge = (birthDateVal) => {
+    if (!birthDateVal) return null;
     try {
-      const birth = new Date(birthDateStr);
+      const birth = birthDateVal instanceof Date ? birthDateVal : new Date(birthDateVal);
       if (isNaN(birth.getTime())) return null;
       const today = new Date();
       let age = today.getFullYear() - birth.getFullYear();
@@ -198,18 +214,21 @@ export default function PatientProfile({ patientId, onBackToList }) {
     return { val, label, colorClass };
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return 'Não informado';
+  const formatDate = (dateVal) => {
+    if (!dateVal) return 'Não informado';
     try {
-      const date = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00`);
-      if (isNaN(date.getTime())) return dateStr;
+      const date =
+        dateVal instanceof Date
+          ? dateVal
+          : new Date(typeof dateVal === 'string' && !dateVal.includes('T') ? `${dateVal}T00:00:00` : dateVal);
+      if (isNaN(date.getTime())) return typeof dateVal === 'string' ? dateVal : 'Não informado';
       return date.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
       });
     } catch {
-      return dateStr;
+      return typeof dateVal === 'string' ? dateVal : 'Não informado';
     }
   };
 
@@ -224,7 +243,7 @@ export default function PatientProfile({ patientId, onBackToList }) {
     );
   }
 
-  if (error && !patient) {
+  if (error || !patient || !formData) {
     return (
       <div className="page-container animate-fade-in">
         <button type="button" className="btn-back-link" onClick={onBackToList}>
@@ -232,7 +251,7 @@ export default function PatientProfile({ patientId, onBackToList }) {
         </button>
         <div className="error-card">
           <AlertCircle size={24} color="#dc2626" />
-          <p>{error}</p>
+          <p>{error || 'Paciente não encontrado.'}</p>
           <button type="button" className="btn-secondary" onClick={onBackToList}>
             Voltar para Pacientes
           </button>
@@ -243,7 +262,8 @@ export default function PatientProfile({ patientId, onBackToList }) {
 
   const age = calculateAge(formData?.data_nascimento || patient?.data_nascimento);
   const imcData = getIMCDetails(formData?.peso_inicial || patient?.peso_inicial, formData?.altura || patient?.altura);
-  const cleanWhatsapp = formData?.whatsapp ? formData.whatsapp.replace(/\D/g, '') : '';
+  const cleanWhatsapp = (formData?.whatsapp || patient?.whatsapp || '').replace(/\D/g, '');
+  const avatarLetter = (formData?.nome || patient?.nome || 'P').trim()[0]?.toUpperCase() || 'P';
 
   return (
     <div className="page-container animate-fade-in">
@@ -256,7 +276,7 @@ export default function PatientProfile({ patientId, onBackToList }) {
 
       {/* Patient Header Card */}
       <div className="patient-hero-card">
-        <div className="hero-avatar">{formData?.nome?.trim()[0]?.toUpperCase() || 'P'}</div>
+        <div className="hero-avatar">{avatarLetter}</div>
         <div className="hero-details">
           <div className="hero-name-row">
             <h1 className="hero-name">{patient.nome}</h1>
@@ -719,66 +739,11 @@ export default function PatientProfile({ patientId, onBackToList }) {
       {/* SECTION 3: PLANOS ALIMENTARES */}
       {activeSection === 'planos' && (
         <div className="planos-section animate-fade-in">
-          <div className="section-toolbar">
-            <h2 className="section-title">Planos Alimentares</h2>
-            <button
-              type="button"
-              className="btn-primary-action btn-generate-plan"
-              onClick={() => alert('A geração de planos alimentares com IA será ativada no próximo prompt!')}
-            >
-              <Sparkles size={18} />
-              <span>Gerar Plano Alimentar</span>
-            </button>
-          </div>
-
-          <div className="planos-list-card">
-            {planos.length === 0 ? (
-              <div className="empty-state-card" style={{ padding: '3rem 2rem' }}>
-                <div className="empty-icon-circle">
-                  <FileText size={36} />
-                </div>
-                <h3>Nenhum plano alimentar gerado ainda</h3>
-                <p>Clique no botão "Gerar Plano Alimentar" acima para elaborar o primeiro plano nutricional deste paciente.</p>
-              </div>
-            ) : (
-              <div className="planos-history-list">
-                {planos.map((plan) => {
-                  const isExpanded = expandedPlanId === plan.id;
-                  return (
-                    <div key={plan.id} className="plano-item-card">
-                      <div
-                        className="plano-item-header"
-                        onClick={() => setExpandedPlanId(isExpanded ? null : plan.id)}
-                      >
-                        <div className="plano-header-info">
-                          <FileText size={20} className="text-emerald-600" />
-                          <div>
-                            <strong>Plano Alimentar de {formatDate(plan.created_at)}</strong>
-                            <span className="plano-date-sub">
-                              Gerado em {new Date(plan.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                        </div>
-                        <button type="button" className="btn-expand-plan">
-                          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                        </button>
-                      </div>
-
-                      {isExpanded && (
-                        <div className="plano-item-content animate-fade-in">
-                          <pre className="plano-json-view">
-                            {typeof plan.conteudo === 'string'
-                              ? plan.conteudo
-                              : JSON.stringify(plan.conteudo, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <MealPlanGenerator
+            patient={patient}
+            plans={planos}
+            onPlanSaved={reloadPatientData}
+          />
         </div>
       )}
 
