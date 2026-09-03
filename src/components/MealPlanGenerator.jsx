@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { createPlanoAlimentar, deletePlanoAlimentar } from '../services/patients';
 import { getDefaultRestaurantsForCity } from '../utils/locationData';
+import { getPatientPhoto } from '../utils/patientAvatar';
 import RecipeModal from './RecipeModal';
 
 // Dias da semana padrão
@@ -75,6 +76,8 @@ const LOADING_MESSAGES = [
 ];
 
 export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) {
+  const patientPhoto = getPatientPhoto(patient?.nome, patient?.foto_url);
+
   // Estado do plano em edição (null quando nenhum plano estiver sendo editado/gerado)
   const [currentPlan, setCurrentPlan] = useState(null);
   const [activeDayIndex, setActiveDayIndex] = useState(0);
