@@ -78,6 +78,15 @@ const LOADING_MESSAGES = [
 export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) {
   const patientPhoto = getPatientPhoto(patient?.nome, patient?.foto_url);
 
+  // Abre a localização do restaurante no Google Maps
+  const openGoogleMapsForRestaurant = (restaurantText, city = '') => {
+    if (!restaurantText || typeof restaurantText !== 'string' || !restaurantText.trim()) return;
+    const restName = restaurantText.split(' - ')[0].trim();
+    const searchTerms = `${restName} ${city || ''}`.trim();
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchTerms)}`;
+    window.open(mapsUrl, '_blank', 'noopener,noreferrer');
+  };
+
   // Estado do plano em edição (null quando nenhum plano estiver sendo editado/gerado)
   const [currentPlan, setCurrentPlan] = useState(null);
   const [activeDayIndex, setActiveDayIndex] = useState(0);
@@ -772,12 +781,12 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
                                 {typeof rest === 'string' && rest.trim() && (
                                   <button
                                     type="button"
-                                    className="btn-recipe-suggest-sm"
-                                    onClick={() => setRecipePrato(rest)}
-                                    title="Ver receita do prato sugerido com IA"
+                                    className="btn-maps-link-sm"
+                                    onClick={() => openGoogleMapsForRestaurant(rest, patient?.cidade)}
+                                    title={`Abrir localização de ${rest.split(' - ')[0]} no Google Maps`}
                                   >
-                                    <ChefHat size={12} />
-                                    <span>Receita</span>
+                                    <MapPin size={12} />
+                                    <span>Ver no Mapa</span>
                                   </button>
                                 )}
                               </div>
@@ -994,12 +1003,12 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
                                                    {typeof rest === 'string' && rest.trim() && (
                                                      <button
                                                        type="button"
-                                                       className="btn-recipe-suggest-sm"
-                                                       onClick={() => setRecipePrato(rest)}
-                                                       title="Ver Receita com IA"
+                                                       className="btn-maps-link-sm"
+                                                       onClick={() => openGoogleMapsForRestaurant(rest, patient?.cidade)}
+                                                       title={`Abrir localização de ${rest.split(' - ')[0]} no Google Maps`}
                                                      >
-                                                       <ChefHat size={12} />
-                                                       <span>Receita</span>
+                                                       <MapPin size={12} />
+                                                       <span>Ver no Mapa</span>
                                                      </button>
                                                    )}
                                                  </li>
