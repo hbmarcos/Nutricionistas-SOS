@@ -18,9 +18,13 @@ import {
   Copy,
   Edit3,
   RefreshCw,
-  Info
+  Info,
+  ChefHat,
+  UtensilsCrossed,
+  MapPin
 } from 'lucide-react';
 import { createPlanoAlimentar, deletePlanoAlimentar } from '../services/patients';
+import RecipeModal from './RecipeModal';
 
 // Dias da semana padrão
 const DIAS_SEMANA = [
@@ -52,7 +56,8 @@ function createEmptyWeeklyPlan() {
         lanche_manha: ['', '', '', '', ''],
         almoco: ['', '', '', '', ''],
         lanche_tarde: ['', '', '', '', ''],
-        jantar: ['', '', '', '', '']
+        jantar: ['', '', '', '', ''],
+        restaurantes_jantar: ['', '', '']
       }
     }))
   };
@@ -61,7 +66,7 @@ function createEmptyWeeklyPlan() {
 // Mensagens dinâmicas para o loading da IA
 const LOADING_MESSAGES = [
   'Lendo histórico e anamnese do paciente...',
-  'Analisando objetivos, restrições e alergias...',
+  'Analisando alimentos regionais e disponíveis na cidade do paciente...',
   'IA calculando cardápio semanal variado e equilibrado...',
   'Formatando 5 opções de alimentos para cada refeição...',
   'Finalizando plano alimentar personalizado...'
@@ -84,6 +89,9 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
   // Histórico
   const [expandedPlanId, setExpandedPlanId] = useState(null);
   const [historyActiveDay, setHistoryActiveDay] = useState({});
+
+  // Estado para Modal de Receita Sugerida
+  const [recipePrato, setRecipePrato] = useState(null);
 
   // Ref para rolagem suave ao abrir editor
   const editorRef = useRef(null);
@@ -184,6 +192,12 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
         refeicoes[ref.key] = options;
       });
 
+      let restJantar = existingRefeicoes.restaurantes_jantar;
+      if (!Array.isArray(restJantar)) {
+        restJantar = typeof restJantar === 'string' ? [restJantar] : [];
+      }
+      refeicoes.restaurantes_jantar = restJantar;
+
       return {
         dia: diaNome,
         refeicoes
@@ -281,8 +295,17 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
         plano_semanal: currentPlan.plano_semanal.map((day) => {
           const cleanedRefeicoes = {};
           Object.entries(day.refeicoes).forEach(([key, options]) => {
-            const filtered = options.map((opt) => (typeof opt === 'string' ? opt.trim() : '')).filter(Boolean);
-            cleanedRefeicoes[key] = filtered.length > 0 ? filtered : ['Opção livre recomendada'];
+            const filtered = (Array.isArray(options) ? options : [])
+              .map((opt) => (typeof opt === 'string' ? opt.trim() : ''))
+              .filter(Boolean);
+
+            if (key === 'restaurantes_jantar') {
+              if (filtered.length > 0) {
+                cleanedRefeicoes.restaurantes_jantar = filtered;
+              }
+            } else {
+              cleanedRefeicoes[key] = filtered.length > 0 ? filtered : ['Opção livre recomendada'];
+            }
           });
           return {
             dia: day.dia,
@@ -425,7 +448,7 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
         <div>
           <h2 className="section-title">Planos Alimentares Semanais</h2>
           <p className="section-subtitle">
-            Gere cardápios personalizados e ajustados aos objetivos e restrições do paciente.
+            Gere cardápios personalizados e ajustados aos objetivos e restrições de {patient?.nome}.
           </p>
         </div>
 
@@ -464,7 +487,13 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
             <div className="ai-loading-info">
               <h3>Inteligência Artificial em Ação</h3>
               <p className="ai-loading-subtitle">
-                O Gemini está analisando anamnese, metas e restrições de <strong>{patient.nome}</strong>.
+                O Gemini está analisando anamnese, metas e restrições de{' '}
+                <span className="patient-inline-badge">
+                  {patientPhoto && (
+                    <img src={patientPhoto} alt={patient?.nome} className="inline-name-avatar-sm" />
+                  )}
+                  <strong>{patient?.nome}</strong>
+                </span>.
               </p>
             </div>
           </div>
@@ -597,6 +626,17 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
                                   handleOptionChange(activeDayIndex, refConfig.key, optIdx, e.target.value)
                                 }
                               />
+                              {optVal.trim() && (
+                                <button
+                                  type="button"
+                                  className="btn-recipe-suggest"
+                                  onClick={() => setRecipePrato(optVal)}
+                                  title="Ver/Sugerir receita para este prato com IA"
+                                >
+                                  <ChefHat size={14} />
+                                  <span>Receita</span>
+                                </button>
+                              )}
                               {options.length > 1 && (
                                 <button
                                   type="button"
@@ -619,6 +659,47 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
                           <Plus size={14} /> Adicionar Opção
                         </button>
                       </div>
+
+                      {/* Bloco exclusivo para Restaurantes no Jantar */}
+                      {refConfig.key === 'jantar' && (
+                        <div className="dinner-restaurants-block">
+                          <div className="dinner-restaurants-header">
+                            <UtensilsCrossed size={16} className="text-indigo-600" />
+                            <span className="dinner-restaurants-title">Restaurantes na Cidade para o Jantar</span>
+                            {patient?.cidade && (
+                              <span className="city-pill-tag">
+                                <MapPin size={11} /> {patient.cidade}
+                              </span>
+                            )}
+                          </div>
+                          {Array.isArray(activeDay.refeicoes.restaurantes_jantar) &&
+                          activeDay.refeicoes.restaurantes_jantar.length > 0 ? (
+                            <ul className="dinner-restaurants-list">
+                              {activeDay.refeicoes.restaurantes_jantar.map((rest, rIdx) => (
+                                <li key={rIdx} className="restaurant-item-row">
+                                  <span className="restaurant-number">{rIdx + 1}</span>
+                                  <span className="restaurant-text">{rest}</span>
+                                  {typeof rest === 'string' && rest.trim() && (
+                                    <button
+                                      type="button"
+                                      className="btn-recipe-suggest-sm"
+                                      onClick={() => setRecipePrato(rest)}
+                                      title="Ver sugestão/receita deste prato com IA"
+                                    >
+                                      <ChefHat size={12} />
+                                      <span>Receita</span>
+                                    </button>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="no-restaurants-hint">
+                              Gere o plano com IA para obter 3 opções de restaurantes na cidade do paciente.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -787,8 +868,21 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
                                         {Array.isArray(options) && options.length > 0 ? (
                                           options.map((opt, oIdx) => (
                                             <li key={oIdx} className="history-option-item">
-                                              <span className="opt-bullet">•</span>
-                                              <span>{opt}</span>
+                                              <div className="history-option-text-group">
+                                                <span className="opt-bullet">•</span>
+                                                <span>{opt}</span>
+                                              </div>
+                                              {typeof opt === 'string' && opt.trim() && (
+                                                <button
+                                                  type="button"
+                                                  className="btn-recipe-suggest-sm"
+                                                  onClick={() => setRecipePrato(opt)}
+                                                  title="Ver Receita com IA"
+                                                >
+                                                  <ChefHat size={12} />
+                                                  <span>Receita</span>
+                                                </button>
+                                              )}
                                             </li>
                                           ))
                                         ) : (
@@ -797,6 +891,37 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
                                           </li>
                                         )}
                                       </ul>
+
+                                      {/* Restaurantes do Jantar no Histórico */}
+                                      {refConfig.key === 'jantar' &&
+                                         Array.isArray(planWeekly[selectedHistoryDay].refeicoes?.restaurantes_jantar) &&
+                                         planWeekly[selectedHistoryDay].refeicoes.restaurantes_jantar.length > 0 && (
+                                           <div className="history-dinner-restaurants">
+                                             <div className="history-dinner-rest-title">
+                                               <UtensilsCrossed size={14} className="text-indigo-600" />
+                                               <span>Restaurantes Sugeridos no Jantar:</span>
+                                             </div>
+                                             <ul className="history-rest-list">
+                                               {planWeekly[selectedHistoryDay].refeicoes.restaurantes_jantar.map((rest, rIdx) => (
+                                                 <li key={rIdx} className="history-rest-item">
+                                                   <span className="rest-num">{rIdx + 1}.</span>
+                                                   <span className="rest-text">{rest}</span>
+                                                   {typeof rest === 'string' && rest.trim() && (
+                                                     <button
+                                                       type="button"
+                                                       className="btn-recipe-suggest-sm"
+                                                       onClick={() => setRecipePrato(rest)}
+                                                       title="Ver Receita com IA"
+                                                     >
+                                                       <ChefHat size={12} />
+                                                       <span>Receita</span>
+                                                     </button>
+                                                   )}
+                                                 </li>
+                                               ))}
+                                             </ul>
+                                           </div>
+                                         )}
                                     </div>
                                   );
                                 })}
@@ -817,6 +942,15 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
           </div>
         )}
       </div>
+
+      {/* Modal de Receita Sugerida por IA */}
+      {recipePrato && (
+        <RecipeModal
+          prato={recipePrato}
+          paciente={patient}
+          onClose={() => setRecipePrato(null)}
+        />
+      )}
     </div>
   );
 }

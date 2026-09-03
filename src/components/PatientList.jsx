@@ -174,7 +174,10 @@ export default function PatientList({ user, onNavigateToRegister, onSelectPatien
               <div
                 key={patient.id}
                 className="patient-card"
-                onClick={() => onSelectPatient(patient.id)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onSelectPatient(patient.id);
+                }}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => e.key === 'Enter' && onSelectPatient(patient.id)}
@@ -188,9 +191,17 @@ export default function PatientList({ user, onNavigateToRegister, onSelectPatien
                     <div className="patient-meta">
                       {age && <span className="meta-pill">{age}</span>}
                       {patient.sexo && <span className="meta-pill">{patient.sexo}</span>}
+                      {patient.cidade && <span className="meta-pill">{patient.cidade}</span>}
                     </div>
                   </div>
-                  <ChevronRight size={20} className="card-arrow-icon" />
+                  <ChevronRight
+                    size={20}
+                    className="card-arrow-icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectPatient(patient.id);
+                    }}
+                  />
                 </div>
 
                 <div className="patient-card-body">
@@ -212,7 +223,15 @@ export default function PatientList({ user, onNavigateToRegister, onSelectPatien
                 </div>
 
                 <div className="patient-card-footer">
-                  <span className="btn-view-profile">Ver perfil completo →</span>
+                  <span
+                    className="btn-view-profile"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectPatient(patient.id);
+                    }}
+                  >
+                    Ver perfil completo →
+                  </span>
                 </div>
               </div>
             );

@@ -140,13 +140,19 @@ export default function Dashboard({ user, onChangeView }) {
         <div className="dash-card">
           <div className="dash-card-header flex-between">
             <h3>Pacientes Recentes</h3>
-            {patientCount > 0 && (
+            {(patientCount > 0 || recentPatients.length > 0) && (
               <button
                 type="button"
                 className="btn-text-link"
-                onClick={() => onChangeView('patients-list')}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (typeof onChangeView === 'function') {
+                    onChangeView('patients-list');
+                  }
+                }}
               >
-                Ver todos ({patientCount})
+                Ver todos ({patientCount || recentPatients.length})
               </button>
             )}
           </div>
@@ -164,24 +170,25 @@ export default function Dashboard({ user, onChangeView }) {
               </div>
             ) : (
               <div className="recent-patients-list">
-                {recentPatients.map((p) => (
-                  <div
-                    key={p.id}
-                    className="recent-patient-item"
-                    onClick={() => onChangeView('patient-profile', p.id)}
-                  >
-                    <div className="avatar-sm">
-                      {(p.nome || 'P').trim()[0]?.toUpperCase() || 'P'}
+                {recentPatients.map((p) => {
+                  const initial = (p.nome || 'P').trim()[0]?.toUpperCase() || 'P';
+                  return (
+                    <div
+                      key={p.id}
+                      className="recent-patient-item"
+                      onClick={() => onChangeView('patient-profile', p.id)}
+                    >
+                      <div className="avatar-sm">{initial}</div>
+                      <div className="recent-info">
+                        <span className="recent-name">{p.nome}</span>
+                        <span className="recent-sub">
+                          {p.sexo || 'Paciente'} • {p.objetivo_texto || (Array.isArray(p.objetivos) && p.objetivos[0]) || 'Geral'}
+                        </span>
+                      </div>
+                      <ArrowRight size={16} className="recent-arrow" />
                     </div>
-                    <div className="recent-info">
-                      <span className="recent-name">{p.nome}</span>
-                      <span className="recent-sub">
-                        {p.sexo || 'Paciente'} • {p.objetivo_texto || (Array.isArray(p.objetivos) && p.objetivos[0]) || 'Geral'}
-                      </span>
-                    </div>
-                    <ArrowRight size={16} className="recent-arrow" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

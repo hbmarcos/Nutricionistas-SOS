@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Calendar, Save, AlertCircle } from 'lucide-react';
 import { createConsulta } from '../services/patients';
 
-export default function ConsultaModal({ patientId, onClose, onConsultaCreated }) {
+export default function ConsultaModal({ patientId, patientName, onClose, onConsultaCreated }) {
   const todayStr = new Date().toISOString().split('T')[0];
 
   const [formData, setFormData] = useState({
@@ -48,7 +48,10 @@ export default function ConsultaModal({ patientId, onClose, onConsultaCreated })
         <div className="modal-header">
           <div className="modal-title-box">
             <Calendar size={22} className="text-emerald-600" />
-            <h3>Registrar Nova Consulta</h3>
+            <div>
+              <h3>Registrar Nova Consulta</h3>
+              {patientName && <p className="modal-subtitle-text">{patientName}</p>}
+            </div>
           </div>
           <button type="button" className="btn-close-modal" onClick={onClose}>
             <X size={20} />

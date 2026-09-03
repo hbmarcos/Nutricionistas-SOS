@@ -43,9 +43,14 @@ const MEAL_PLAN_SCHEMA = {
                 type: SchemaType.ARRAY,
                 items: { type: SchemaType.STRING },
                 description: '5 opções equilibradas para o jantar.'
+              },
+              restaurantes_jantar: {
+                type: SchemaType.ARRAY,
+                items: { type: SchemaType.STRING },
+                description: '3 opções de restaurantes na cidade do paciente com pratos saudáveis para o jantar.'
               }
             },
-            required: ['cafe_da_manha', 'lanche_manha', 'almoco', 'lanche_tarde', 'jantar']
+            required: ['cafe_da_manha', 'lanche_manha', 'almoco', 'lanche_tarde', 'jantar', 'restaurantes_jantar']
           }
         },
         required: ['dia', 'refeicoes']
@@ -65,6 +70,8 @@ export function formatPatientDataForPrompt(paciente) {
   if (paciente.nome) partes.push(`Nome: ${paciente.nome}`);
   if (paciente.sexo) partes.push(`Sexo: ${paciente.sexo}`);
   if (paciente.data_nascimento) partes.push(`Data de Nascimento: ${paciente.data_nascimento}`);
+  if (paciente.cidade) partes.push(`Cidade do Paciente: ${paciente.cidade}`);
+  if (paciente.pais) partes.push(`País de Origem: ${paciente.pais}`);
   if (paciente.peso_inicial) partes.push(`Peso Atual/Inicial: ${paciente.peso_inicial} kg`);
   if (paciente.altura) partes.push(`Altura: ${paciente.altura} cm`);
 
@@ -131,11 +138,14 @@ Dados do Paciente (Metas, Alergias, Restrições e Histórico):
 ${dadosPacienteTexto}
 
 # Regras Críticas de Execução:
+- OBRIGATÓRIO E CRÍTICO: TODO O TEXTO DO PLANO ALIMENTAR (nomes de pratos, ingredientes, refeições e alimentos) DEVE SER ESTRITAMENTE ESCRITO EM PORTUGUÊS DO BRASIL (PT-BR). NUNCA responda em espanhol, inglês ou qualquer outro idioma, independentemente do país de origem ou cidade do paciente.
+- Se o paciente estiver em um país de outro idioma (ex: Argentina, EUA, etc.), selecione alimentos e receitas disponíveis localmente, mas descreva-os SEMPRE utilizando os termos e nomes em PORTUGUÊS DO BRASIL (exemplo: use "Abacate" em vez de "Palta", "Torradas de pão integral com queijo" em vez de "Tostadas de pan integral con queso", "Mingau de aveia" em vez de "Porridge de avena").
 - Você deve responder APENAS e estritamente o objeto JSON solicitado.
 - Não inclua blocos de código markdown (como \`\`\`json ... \`\`\`), explicações, introduções ou textos complementares.
 - Adapte o cardápio rigorosamente a quaisquer alergias ou restrições descritas nos dados.
-- Utilize alimentos comuns, acessíveis e culturalmente aceitos no Brasil.
-- Evite repetições monótonas de alimentos nos dias seguidos.
+- Adapte o cardápio e os ingredientes aos alimentos e hábitos disponíveis na Cidade (${paciente?.cidade || 'Não informada'}) e País de Origem (${paciente?.pais || 'Brasil'}) do paciente, mantendo toda a nomenclatura em Português do Brasil.
+- Utilize alimentos comuns, acessíveis e culturalmente aceitos.
+- SOMENTE NO JANTAR: Inclua na chave "restaurantes_jantar" exatamente 3 sugestões de restaurantes reais/populares localizados na Cidade do paciente (${paciente?.cidade || 'Não informada'}), indicando em cada um o nome do estabelecimento e uma sugestão de prato saudável e leve para o jantar em Português do Brasil (ex: ["Restaurante Saúde & Sabor - Grelhado com salada verde", "Bistrô Natural - Sopa de legumes leve", "Restaurante Verde Vida - Peixe grelhado com purê de mandioquinha"]).
 
 O formato do JSON retornado deve seguir exatamente esta estrutura:
 {
@@ -147,7 +157,12 @@ O formato do JSON retornado deve seguir exatamente esta estrutura:
         "lanche_manha": ["Opção 1", "Opção 2", "Opção 3", "Opção 4", "Opção 5"],
         "almoco": ["Opção 1", "Opção 2", "Opção 3", "Opção 4", "Opção 5"],
         "lanche_tarde": ["Opção 1", "Opção 2", "Opção 3", "Opção 4", "Opção 5"],
-        "jantar": ["Opção 1", "Opção 2", "Opção 3", "Opção 4", "Opção 5"]
+        "jantar": ["Opção 1", "Opção 2", "Opção 3", "Opção 4", "Opção 5"],
+        "restaurantes_jantar": [
+          "Restaurante 1 na cidade - Prato saudável para o jantar",
+          "Restaurante 2 na cidade - Prato saudável para o jantar",
+          "Restaurante 3 na cidade - Prato saudável para o jantar"
+        ]
       }
     }
   ]

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, Activity, Clock, CheckCircle2, ArrowRight, ArrowLeft, Save, AlertCircle, Plus, X } from 'lucide-react';
 import { createPatient } from '../services/patients';
+import { getCountryByCity, COMMON_CITIES } from '../utils/locationData';
 
 export default function PatientRegister({ user, onRegisterSuccess, onCancel }) {
   const [activeTab, setActiveTab] = useState('pessoal'); // 'pessoal' | 'clinico' | 'habitos'
@@ -14,9 +15,8 @@ export default function PatientRegister({ user, onRegisterSuccess, onCancel }) {
     nome: '',
     data_nascimento: '',
     sexo: 'Feminino',
-    telefone: '',
-    whatsapp: '',
-    email: '',
+    cidade: '',
+    pais: '',
 
     // Aba 2 - Clínico
     peso_inicial: '',
@@ -43,14 +43,14 @@ export default function PatientRegister({ user, onRegisterSuccess, onCancel }) {
     observacoes: ''
   });
 
-  // Phone masking function
-  const formatPhone = (value) => {
-    if (!value) return '';
-    const numbers = value.replace(/\D/g, '').slice(0, 11);
-    if (numbers.length <= 2) return `(${numbers}`;
-    if (numbers.length <= 6) return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
-    if (numbers.length <= 10) return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
-    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
+  // Handler para associação automática de Cidade -> País de Origem
+  const handleCityChange = (cidadeVal) => {
+    const associatedCountry = getCountryByCity(cidadeVal);
+    setFormData((prev) => ({
+      ...prev,
+      cidade: cidadeVal,
+      pais: associatedCountry || prev.pais || 'Brasil'
+    }));
   };
 
   // Time formatting (ex: 6 -> 06:00, 630 -> 06:30, 23 -> 23:00, 2230 -> 22:30)
@@ -283,7 +283,7 @@ export default function PatientRegister({ user, onRegisterSuccess, onCancel }) {
                 <label className="required-label">Nome completo</label>
                 <input
                   type="text"
-                  placeholder="Ex: Maria Silva de Oliveira"
+                  placeholder="Ex: Maria Silva, João Santos..."
                   value={formData.nome}
                   onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
                   required
@@ -316,36 +316,31 @@ export default function PatientRegister({ user, onRegisterSuccess, onCancel }) {
                 </select>
               </div>
 
-              {/* Telefone */}
+              {/* Cidade */}
               <div className="form-group">
-                <label>Telefone</label>
+                <label>Cidade</label>
                 <input
                   type="text"
-                  placeholder="(11) 98765-4321"
-                  value={formData.telefone}
-                  onChange={(e) => setFormData({ ...formData, telefone: formatPhone(e.target.value) })}
+                  list="city-options-list"
+                  placeholder="Ex: São Paulo - SP ou Lisboa"
+                  value={formData.cidade}
+                  onChange={(e) => handleCityChange(e.target.value)}
                 />
+                <datalist id="city-options-list">
+                  {COMMON_CITIES.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
               </div>
 
-              {/* WhatsApp */}
+              {/* País de Origem */}
               <div className="form-group">
-                <label>WhatsApp</label>
+                <label>País de origem (associado)</label>
                 <input
                   type="text"
-                  placeholder="(11) 98765-4321"
-                  value={formData.whatsapp}
-                  onChange={(e) => setFormData({ ...formData, whatsapp: formatPhone(e.target.value) })}
-                />
-              </div>
-
-              {/* E-mail */}
-              <div className="form-group full-width">
-                <label>E-mail</label>
-                <input
-                  type="email"
-                  placeholder="paciente@email.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="Ex: Brasil"
+                  value={formData.pais}
+                  onChange={(e) => setFormData({ ...formData, pais: e.target.value })}
                 />
               </div>
             </div>

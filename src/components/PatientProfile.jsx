@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import {
   User,
-  Phone,
-  Mail,
   Calendar,
   Activity,
   Clock,
   ArrowLeft,
   AlertCircle,
-  MessageSquare,
   Scale,
   Plus,
   FileText,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  MapPin
 } from 'lucide-react';
 import { fetchPatientById, updatePatient, fetchConsultas, fetchPlanosAlimentares } from '../services/patients';
+import { getCountryByCity, COMMON_CITIES } from '../utils/locationData';
+import { getCityImageUrl } from '../utils/cityImage';
+import { getPatientPhoto } from '../utils/patientAvatar';
 import WeightChart from './WeightChart';
 import ConsultaModal from './ConsultaModal';
 import MealPlanGenerator from './MealPlanGenerator';
@@ -52,10 +53,43 @@ export default function PatientProfile({ patientId, onBackToList }) {
   const [successMsg, setSuccessMsg] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
 
+  const currentCity = formData?.cidade || patient?.cidade;
+  const currentPais = formData?.pais || patient?.pais;
+  const cityImgUrl = getCityImageUrl(currentCity);
+
+  useEffect(() => {
+    const mainArea = document.querySelector('.main-content-area') || document.body;
+    if (cityImgUrl) {
+      mainArea.style.backgroundImage = `linear-gradient(rgba(2, 44, 34, 0.75), rgba(6, 78, 59, 0.85)), url(${cityImgUrl})`;
+      mainArea.style.backgroundSize = 'cover';
+      mainArea.style.backgroundPosition = 'center';
+      mainArea.style.backgroundAttachment = 'fixed';
+      mainArea.style.transition = 'background 0.5s ease-in-out';
+    } else {
+      mainArea.style.backgroundImage = '';
+      mainArea.style.backgroundSize = '';
+      mainArea.style.backgroundPosition = '';
+      mainArea.style.backgroundAttachment = '';
+    }
+
+    return () => {
+      mainArea.style.backgroundImage = '';
+      mainArea.style.backgroundSize = '';
+      mainArea.style.backgroundPosition = '';
+      mainArea.style.backgroundAttachment = '';
+    };
+  }, [cityImgUrl]);
+
   useEffect(() => {
     let isMounted = true;
     async function loadAllData() {
-      if (!patientId) return;
+      if (!patientId) {
+        if (isMounted) {
+          setLoading(false);
+          setError('Nenhum paciente selecionado.');
+        }
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
@@ -72,9 +106,8 @@ export default function PatientProfile({ patientId, onBackToList }) {
               nome: patientRes.nome || '',
               data_nascimento: formatBirthDateForInput(patientRes.data_nascimento),
               sexo: patientRes.sexo || 'Feminino',
-              telefone: patientRes.telefone || '',
-              whatsapp: patientRes.whatsapp || '',
-              email: patientRes.email || '',
+              cidade: patientRes.cidade || '',
+              pais: patientRes.pais || '',
               peso_inicial: patientRes.peso_inicial ? String(patientRes.peso_inicial) : '',
               altura: patientRes.altura ? String(patientRes.altura) : '',
               objetivos: Array.isArray(patientRes.objetivos) ? patientRes.objetivos : [],
@@ -260,10 +293,22 @@ export default function PatientProfile({ patientId, onBackToList }) {
     );
   }
 
+  const handleCityChange = (cidadeVal) => {
+    const associatedCountry = getCountryByCity(cidadeVal);
+    setFormData((prev) => ({
+      ...prev,
+      cidade: cidadeVal,
+      pais: associatedCountry || prev.pais || 'Brasil'
+    }));
+  };
+
   const age = calculateAge(formData?.data_nascimento || patient?.data_nascimento);
   const imcData = getIMCDetails(formData?.peso_inicial || patient?.peso_inicial, formData?.altura || patient?.altura);
-  const cleanWhatsapp = (formData?.whatsapp || patient?.whatsapp || '').replace(/\D/g, '');
   const avatarLetter = (formData?.nome || patient?.nome || 'P').trim()[0]?.toUpperCase() || 'P';
+  const patientPhoto = getPatientPhoto(formData?.nome || patient?.nome, formData?.foto_url || patient?.foto_url);
+
+  // Evita duplicar a exibição do país se a cidade já contiver a string do país
+  const showCountryPill = currentPais && currentCity && !currentCity.toLowerCase().includes(currentPais.toLowerCase());
 
   return (
     <div className="page-container animate-fade-in">
@@ -285,24 +330,10 @@ export default function PatientProfile({ patientId, onBackToList }) {
           </div>
 
           <div className="hero-contact-row">
-            {patient.telefone && (
+            {currentCity && (
               <span className="contact-item">
-                <Phone size={14} /> {patient.telefone}
-              </span>
-            )}
-            {patient.whatsapp && (
-              <a
-                href={`https://wa.me/55${cleanWhatsapp}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="contact-item whatsapp-link"
-              >
-                <MessageSquare size={14} /> WhatsApp ({patient.whatsapp})
-              </a>
-            )}
-            {patient.email && (
-              <span className="contact-item">
-                <Mail size={14} /> {patient.email}
+                <MapPin size={14} /> {currentCity}
+                {showCountryPill ? ` (${currentPais})` : ''}
               </span>
             )}
             <span className="contact-item">
@@ -395,7 +426,13 @@ export default function PatientProfile({ patientId, onBackToList }) {
                   <input
                     type="text"
                     value={formData.nome}
-                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
+                        nome: val
+                      }));
+                    }}
                     required
                   />
                 </div>
@@ -425,29 +462,28 @@ export default function PatientProfile({ patientId, onBackToList }) {
                 </div>
 
                 <div className="form-group">
-                  <label>Telefone</label>
+                  <label>Cidade</label>
                   <input
                     type="text"
-                    value={formData.telefone}
-                    onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                    list="city-options-profile-list"
+                    placeholder="Ex: São Paulo - SP ou Lisboa"
+                    value={formData.cidade}
+                    onChange={(e) => handleCityChange(e.target.value)}
                   />
+                  <datalist id="city-options-profile-list">
+                    {COMMON_CITIES.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
                 </div>
 
                 <div className="form-group">
-                  <label>WhatsApp</label>
+                  <label>País de origem (associado)</label>
                   <input
                     type="text"
-                    value={formData.whatsapp}
-                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-group full-width">
-                  <label>E-mail</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="Ex: Brasil"
+                    value={formData.pais}
+                    onChange={(e) => setFormData({ ...formData, pais: e.target.value })}
                   />
                 </div>
               </div>
@@ -751,6 +787,8 @@ export default function PatientProfile({ patientId, onBackToList }) {
       {modalOpen && (
         <ConsultaModal
           patientId={patientId}
+          patientName={patient?.nome}
+          patientPhoto={patientPhoto}
           onClose={() => setModalOpen(false)}
           onConsultaCreated={() => {
             reloadPatientData();

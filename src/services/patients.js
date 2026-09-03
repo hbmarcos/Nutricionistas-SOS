@@ -166,11 +166,13 @@ export async function fetchPatients(userEmail, _userId = null) {
  */
 export async function fetchPatientById(patientId) {
   if (!patientId) return null;
+  const targetIdStr = String(patientId).trim();
   const sql = getSqlClient();
+
   if (sql) {
     try {
       const rows = await sql`
-        SELECT * FROM pacientes WHERE id = ${patientId} LIMIT 1;
+        SELECT * FROM pacientes WHERE id::text = ${targetIdStr} LIMIT 1;
       `;
       if (rows && rows.length > 0) {
         return rows[0];
@@ -181,7 +183,27 @@ export async function fetchPatientById(patientId) {
   }
 
   const local = getLocalPatients();
-  return local.find(p => p.id === patientId || String(p.id) === String(patientId)) || null;
+  const foundLocal = local.find(p => String(p.id).trim() === targetIdStr);
+  if (foundLocal) return foundLocal;
+
+  if (sql) {
+    try {
+      const allRows = await sql`SELECT * FROM pacientes LIMIT 200;`;
+      if (allRows && allRows.length > 0) {
+        const found = allRows.find(p => String(p.id).trim() === targetIdStr);
+        if (found) return found;
+      }
+    } catch (e) {
+      console.warn('[patients.js] Falha no fallback de busca por ID:', e.message);
+    }
+  }
+
+  try {
+    const all = await fetchPatients();
+    return (all || []).find(p => String(p.id).trim() === targetIdStr) || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -208,6 +230,8 @@ export async function createPatient(patientData, userEmail, userName) {
     nome: patientData.nome.trim(),
     data_nascimento: patientData.data_nascimento || null,
     sexo: patientData.sexo || null,
+    cidade: patientData.cidade || null,
+    pais: patientData.pais || null,
     telefone: patientData.telefone || null,
     whatsapp: patientData.whatsapp || null,
     email: patientData.email || null,
@@ -236,9 +260,15 @@ export async function createPatient(patientData, userEmail, userName) {
 
   if (sql) {
     try {
+      // Garantir colunas no banco de dados Neon
+      await sql`ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS cidade VARCHAR(255);`;
+      await sql`ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS pais VARCHAR(255);`;
+    } catch (_) {}
+
+    try {
       const rows = await sql`
         INSERT INTO pacientes (
-          nutricionista_id, nome, data_nascimento, sexo, telefone, whatsapp, email,
+          nutricionista_id, nome, data_nascimento, sexo, cidade, pais, telefone, whatsapp, email,
           peso_inicial, altura, objetivos, objetivo_texto, nivel_atividade,
           patologias, restricoes_alimentares, alergias, medicamentos, suplementos,
           refeicoes_por_dia, horario_acorda, horario_dorme, litros_agua,
@@ -248,6 +278,8 @@ export async function createPatient(patientData, userEmail, userName) {
           ${cleanData.nome},
           ${cleanData.data_nascimento},
           ${cleanData.sexo},
+          ${cleanData.cidade},
+          ${cleanData.pais},
           ${cleanData.telefone},
           ${cleanData.whatsapp},
           ${cleanData.email},
@@ -307,6 +339,9 @@ export async function updatePatient(patientId, patientData) {
     nome: patientData.nome.trim(),
     data_nascimento: patientData.data_nascimento || null,
     sexo: patientData.sexo || null,
+    cidade: patientData.cidade || null,
+    pais: patientData.pais || null,
+    foto_url: patientData.foto_url || null,
     telefone: patientData.telefone || null,
     whatsapp: patientData.whatsapp || null,
     email: patientData.email || null,
@@ -334,11 +369,19 @@ export async function updatePatient(patientId, patientData) {
 
   if (sql) {
     try {
+      // Garantir colunas no banco de dados Neon
+      await sql`ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS cidade VARCHAR(255);`;
+      await sql`ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS pais VARCHAR(255);`;
+    } catch (_) {}
+
+    try {
       const rows = await sql`
         UPDATE pacientes SET
           nome = ${cleanData.nome},
           data_nascimento = ${cleanData.data_nascimento},
           sexo = ${cleanData.sexo},
+          cidade = ${cleanData.cidade},
+          pais = ${cleanData.pais},
           telefone = ${cleanData.telefone},
           whatsapp = ${cleanData.whatsapp},
           email = ${cleanData.email},
@@ -392,13 +435,14 @@ export async function updatePatient(patientId, patientData) {
  */
 export async function fetchConsultas(patientId) {
   if (!patientId) return [];
+  const targetIdStr = String(patientId).trim();
   const sql = getSqlClient();
 
   if (sql) {
     try {
       const rows = await sql`
         SELECT * FROM consultas
-        WHERE paciente_id = ${patientId}
+        WHERE paciente_id::text = ${targetIdStr}
         ORDER BY data_consulta DESC, created_at DESC;
       `;
       if (rows) return rows;
@@ -496,13 +540,14 @@ export async function createConsulta(patientId, consultaData) {
  */
 export async function fetchPlanosAlimentares(patientId) {
   if (!patientId) return [];
+  const targetIdStr = String(patientId).trim();
   const sql = getSqlClient();
 
   if (sql) {
     try {
       const rows = await sql`
         SELECT * FROM planos_alimentares
-        WHERE paciente_id = ${patientId}
+        WHERE paciente_id::text = ${targetIdStr}
         ORDER BY created_at DESC;
       `;
       if (rows) return rows;
