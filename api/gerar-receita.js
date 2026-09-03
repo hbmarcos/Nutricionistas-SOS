@@ -79,32 +79,43 @@ Dados de saúde do paciente para adequação:
 - Responda APENAS o JSON no schema solicitado.`;
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const modelsToTry = ['gemini-3.6-flash', 'gemini-3.7-flash'];
+  const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
   let rawText = '';
   let lastError = null;
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   for (const modelName of modelsToTry) {
-    try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: RECIPE_SCHEMA,
-          temperature: 0.7
-        }
-      });
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: RECIPE_SCHEMA,
+            temperature: 0.7
+          }
+        });
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      rawText = response.text();
-      if (rawText) break;
-    } catch (err) {
-      lastError = err;
-      console.warn(`[gerar-receita] Erro com ${modelName}:`, err.message);
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        rawText = response.text();
+        if (rawText) break;
+      } catch (err) {
+        lastError = err;
+        console.warn(`[gerar-receita] Erro com ${modelName} (tentativa ${attempt}):`, err.message);
+        if (attempt < 2) {
+          await sleep(1200 * attempt);
+        }
+      }
     }
+    if (rawText) break;
   }
 
   if (!rawText) {
+    const errorMsg = lastError?.message || '';
+    if (errorMsg.includes('503') || errorMsg.includes('high demand') || errorMsg.includes('Service Unavailable')) {
+      throw new Error('Os servidores da IA do Google estão temporariamente sobrecarregados. Por favor, aguarde alguns instantes e clique em "Tentar novamente".');
+    }
     throw lastError || new Error('Não foi possível gerar a receita.');
   }
 

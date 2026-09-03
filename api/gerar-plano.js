@@ -170,8 +170,8 @@ O formato do JSON retornado deve seguir exatamente esta estrutura:
 
   const genAI = new GoogleGenerativeAI(apiKey);
   
-  // Modelos Gemini suportados
-  const modelsToTry = ['gemini-3.6-flash', 'gemini-3.7-flash'];
+  // Modelos Gemini suportados (ordem de prioridade e fallback)
+  const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
   let lastError = null;
   let rawText = '';
 
