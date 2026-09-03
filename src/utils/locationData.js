@@ -126,20 +126,36 @@ const CITY_TO_COUNTRY = {
  */
 export const COMMON_CITIES = [
   'São Paulo - SP, Brasil',
+  'Santos - SP, Brasil',
+  'Guarujá - SP, Brasil',
+  'Campinas - SP, Brasil',
+  'São José dos Campos - SP, Brasil',
+  'Sorocaba - SP, Brasil',
+  'Ribeirão Preto - SP, Brasil',
   'Rio de Janeiro - RJ, Brasil',
+  'Niterói - RJ, Brasil',
   'Belo Horizonte - MG, Brasil',
+  'Uberlândia - MG, Brasil',
   'Brasília - DF, Brasil',
   'Salvador - BA, Brasil',
   'Fortaleza - CE, Brasil',
   'Curitiba - PR, Brasil',
+  'Londrina - PR, Brasil',
   'Manaus - AM, Brasil',
   'Recife - PE, Brasil',
   'Porto Alegre - RS, Brasil',
+  'Caxias do Sul - RS, Brasil',
   'Belém - PA, Brasil',
   'Goiânia - GO, Brasil',
-  'Campinas - SP, Brasil',
   'Florianópolis - SC, Brasil',
+  'Joinville - SC, Brasil',
   'Vitória - ES, Brasil',
+  'Natal - RN, Brasil',
+  'Maceió - AL, Brasil',
+  'João Pessoa - PB, Brasil',
+  'Aracaju - SE, Brasil',
+  'Cuiabá - MT, Brasil',
+  'Campo Grande - MS, Brasil',
   'Lisboa, Portugal',
   'Porto, Portugal',
   'Luanda, Angola',
@@ -197,6 +213,14 @@ export function getCountryByCity(cityInput) {
  */
 export function getDefaultRestaurantsForCity(cityInput) {
   const clean = normalizeText(cityInput || '');
+
+  if (clean.includes('santos')) {
+    return [
+      'Saúde na Panela / Estrela de Santos (Gonzaga, Santos) - Filé de peixe grelhado com legumes no vapor e salada',
+      'Limoncello Fit (Boqueirão, Santos) - Bowl funcional de quinoa com legumes assados e cogumelos',
+      'Restaurante Terraço (Embaré, Santos) - Salmão grelhado com purê de mandioquinha e salada verde'
+    ];
+  }
 
   if (clean.includes('buenos aires')) {
     return [
