@@ -24,6 +24,7 @@ import {
   MapPin
 } from 'lucide-react';
 import { createPlanoAlimentar, deletePlanoAlimentar } from '../services/patients';
+import { getDefaultRestaurantsForCity } from '../utils/locationData';
 import RecipeModal from './RecipeModal';
 
 // Dias da semana padrão
@@ -46,8 +47,9 @@ const REFEICOES_CONFIG = [
   { key: 'jantar', label: 'Jantar', icon: Moon, color: 'text-indigo-600', bg: 'bg-indigo-50' }
 ];
 
-// Template vazio de plano semanal com 5 opções por refeição
-function createEmptyWeeklyPlan() {
+// Template inicial de plano semanal com 5 opções por refeição e 3 restaurantes sugeridos
+function createEmptyWeeklyPlan(cidade = '') {
+  const defaultRestaurants = getDefaultRestaurantsForCity(cidade);
   return {
     plano_semanal: DIAS_SEMANA.map((dia) => ({
       dia,
@@ -57,7 +59,7 @@ function createEmptyWeeklyPlan() {
         almoco: ['', '', '', '', ''],
         lanche_tarde: ['', '', '', '', ''],
         jantar: ['', '', '', '', ''],
-        restaurantes_jantar: ['', '', '']
+        restaurantes_jantar: [...defaultRestaurants]
       }
     }))
   };
@@ -210,16 +212,18 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
   // Criação de plano manual (fallback ou escolha do usuário)
   const handleCreateManualPlan = () => {
     setErrorToast(null);
-    setCurrentPlan(createEmptyWeeklyPlan());
+    setCurrentPlan(createEmptyWeeklyPlan(patient?.cidade));
     setActiveDayIndex(0);
     setTimeout(() => {
       editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
   };
 
-  // Normaliza a estrutura para garantir 7 dias, 5 refeições e 3 restaurantes
+  // Normaliza a estrutura para garantir 7 dias, 5 refeições e 3 restaurantes sugeridos
   const normalizePlanStructure = (rawPlan) => {
     const rawWeekly = rawPlan.plano_semanal || [];
+    const defaultRestaurants = getDefaultRestaurantsForCity(patient?.cidade);
+
     const fullPlan = DIAS_SEMANA.map((diaNome, idx) => {
       const existingDay = rawWeekly.find(
         (d) => d.dia && d.dia.toLowerCase().includes(diaNome.split('-')[0].toLowerCase())
@@ -245,8 +249,15 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
         restJantar = typeof restJantar === 'string' ? [restJantar] : [];
       }
       restJantar = restJantar.map((r) => (typeof r === 'string' ? r : ''));
-      while (restJantar.length < 3) {
-        restJantar.push('');
+
+      // Se todas as opções estiverem em branco, insere automaticamente as 3 sugestões padrão da cidade
+      const hasAnyRest = restJantar.some((r) => r.trim().length > 0);
+      if (!hasAnyRest) {
+        restJantar = [...defaultRestaurants];
+      } else {
+        while (restJantar.length < 3) {
+          restJantar.push('');
+        }
       }
       refeicoes.restaurantes_jantar = restJantar;
 
@@ -742,16 +753,6 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
                                 </span>
                               )}
                             </div>
-                            <button
-                              type="button"
-                              className="btn-ai-sparkle-sm"
-                              onClick={handleGenerateRestaurantsOnly}
-                              disabled={isGeneratingRestaurants}
-                              title="Buscar/Sugerir 3 restaurantes na cidade do paciente com IA"
-                            >
-                              <Sparkles size={13} className={isGeneratingRestaurants ? 'spin' : ''} />
-                              <span>{isGeneratingRestaurants ? 'Buscando...' : '✨ Indicar com IA'}</span>
-                            </button>
                           </div>
 
                           <div className="dinner-restaurants-inputs">

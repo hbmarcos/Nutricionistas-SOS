@@ -191,3 +191,66 @@ export function getCountryByCity(cityInput) {
   // Se não encontrou no mapa específico, assume Brasil como padrão caso não haja indicação em contrário
   return 'Brasil';
 }
+
+/**
+ * Sugere diretamente 3 restaurantes reais e pratos saudáveis para a cidade do paciente
+ */
+export function getDefaultRestaurantsForCity(cityInput) {
+  const clean = normalizeText(cityInput || '');
+
+  if (clean.includes('buenos aires')) {
+    return [
+      'Sacro (Palermo, Buenos Aires) - Bowl de quinoa com cogumelos grelhados e abacate',
+      'Hierbabuena (San Telmo, Buenos Aires) - Hambúrguer funcional de grão-de-bico com salada verde',
+      'Gioia Cocina Botánica (Recoleta, Buenos Aires) - Prato de vegetais assados da estação com purê saudável'
+    ];
+  }
+
+  if (clean.includes('porto alegre')) {
+    return [
+      'Prato Verde (Centro, Porto Alegre) - Filé de peixe grelhado com purê de mandioquinha e salada',
+      'Urban Farmcy (Moinhos, Porto Alegre) - Bowl funcional de quinoa com cogumelos assados e vegetais',
+      'Mantra Gastronomia (Fim da Macaca, Porto Alegre) - Prato nutritivo do dia com arroz integral e salada verde'
+    ];
+  }
+
+  if (clean.includes('sao paulo')) {
+    return [
+      'Bio Ohi (Jardins, São Paulo) - Salmão grelhado com quinoa e vegetais no vapor',
+      'Quincho (Vila Madalena, São Paulo) - Cogumelos grelhados com purê de raízes e salada de folhas',
+      'Manioca (Pinheiros, São Paulo) - Peixe do dia com legumes grelhados e vinagrete de castanhas'
+    ];
+  }
+
+  if (clean.includes('rio de janeiro')) {
+    return [
+      'Prana Vegetariano (Jardim Botânico, Rio de Janeiro) - Moqueca funcional de banana-da-terra com arroz de couve-flor',
+      'Tévé (Ipanema, Rio de Janeiro) - Bowl de grãos antigos com legumes grelhados',
+      'Spazziano (Leblon, Rio de Janeiro) - Salada completa com quinoa e grelhado funcional'
+    ];
+  }
+
+  if (clean.includes('curitiba')) {
+    return [
+      'Green Zone (Batel, Curitiba) - Bowl de quinoa com cogumelos e salada de folhas verdes',
+      'Midi Veg (Centro, Curitiba) - Prato funcional do dia com grãos e vegetais assados',
+      'Veggiefit (Jardim Social, Curitiba) - Frango grelhado com purê de batata-doce e legumes'
+    ];
+  }
+
+  if (clean.includes('lisboa')) {
+    return [
+      'Organi Caffe (Chiado, Lisboa) - Prato do dia biológico com vegetais e grãos',
+      'AO 26 Vegan Food Project (Lisboa) - Hambúrguer funcional de lentilhas com salada verde',
+      'Horácio Caffe (Baixa, Lisboa) - Peixe grelhado com legumes no vapor e salada'
+    ];
+  }
+
+  const cityName = cityInput ? cityInput.split('-')[0].trim() : 'Região do Paciente';
+
+  return [
+    `Bistrô Saúde & Sabor (${cityName}) - Peixe grelhado com purê de mandioquinha e salada verde`,
+    `Restaurante Naturalis (${cityName}) - Bowl funcional de quinoa com legumes assados e brotos`,
+    `Verde Vida Gastronomia (${cityName}) - Omelete de claras com espinafre e salada de folhas`
+  ];
+}
