@@ -1,28 +1,30 @@
 /**
- * Mapeamento curado de imagens em alta resolução (Unsplash) para cidades.
+ * Mapeamento curado de imagens em alta resolução (Unsplash - 200 OK) para cartões postais de cidades.
  */
 const CITY_IMAGE_MAP = {
   // Brasil - Principais cidades e capitais
-  'salvador': 'https://images.unsplash.com/photo-1548625361-18a7a8d58c8b?auto=format&fit=crop&w=1920&q=80',
+  'salvador': 'https://images.unsplash.com/photo-1518638150340-f706e86654de?auto=format&fit=crop&w=1920&q=80',
+  'santos': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80',
   'são paulo': 'https://images.unsplash.com/photo-1578637387939-43c525550085?auto=format&fit=crop&w=1920&q=80',
   'sao paulo': 'https://images.unsplash.com/photo-1578637387939-43c525550085?auto=format&fit=crop&w=1920&q=80',
   'rio de janeiro': 'https://images.unsplash.com/photo-1483729558449-99ef09a8c325?auto=format&fit=crop&w=1920&q=80',
-  'belo horizonte': 'https://images.unsplash.com/photo-1599385640237-775677093259?auto=format&fit=crop&w=1920&q=80',
+  'belo horizonte': 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1920&q=80',
   'brasília': 'https://images.unsplash.com/photo-1599839619722-39751411ea63?auto=format&fit=crop&w=1920&q=80',
   'brasilia': 'https://images.unsplash.com/photo-1599839619722-39751411ea63?auto=format&fit=crop&w=1920&q=80',
   'fortaleza': 'https://images.unsplash.com/photo-1596436889106-be35e843f974?auto=format&fit=crop&w=1920&q=80',
-  'curitiba': 'https://images.unsplash.com/photo-1620882173169-b57022081d6f?auto=format&fit=crop&w=1920&q=80',
+  'curitiba': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80',
   'florianópolis': 'https://images.unsplash.com/photo-1598301257982-0cf014dabbcd?auto=format&fit=crop&w=1920&q=80',
   'florianopolis': 'https://images.unsplash.com/photo-1598301257982-0cf014dabbcd?auto=format&fit=crop&w=1920&q=80',
   'manaus': 'https://images.unsplash.com/photo-1549488344-1f9b8d2bd1f3?auto=format&fit=crop&w=1920&q=80',
   'recife': 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?auto=format&fit=crop&w=1920&q=80',
   'porto alegre': 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&w=1920&q=80',
-  'belém': 'https://images.unsplash.com/photo-1590680149021-f8e17b88ec7b?auto=format&fit=crop&w=1920&q=80',
-  'belem': 'https://images.unsplash.com/photo-1590680149021-f8e17b88ec7b?auto=format&fit=crop&w=1920&q=80',
+  'belém': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80',
+  'belem': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80',
   'goiânia': 'https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=1920&q=80',
   'goiania': 'https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=1920&q=80',
   'campinas': 'https://images.unsplash.com/photo-1578637387939-43c525550085?auto=format&fit=crop&w=1920&q=80',
   'vitória': 'https://images.unsplash.com/photo-1596436889106-be35e843f974?auto=format&fit=crop&w=1920&q=80',
+  'vitoria': 'https://images.unsplash.com/photo-1596436889106-be35e843f974?auto=format&fit=crop&w=1920&q=80',
 
   // Portugal & Europa
   'lisboa': 'https://images.unsplash.com/photo-1588668214407-6ea9a6d8c272?auto=format&fit=crop&w=1920&q=80',
@@ -35,7 +37,7 @@ const CITY_IMAGE_MAP = {
 
   // América do Norte e Latina
   'buenos aires': 'https://images.unsplash.com/photo-1589909202802-8f4aadce1849?auto=format&fit=crop&w=1920&q=80',
-  'santiago': 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=1920&q=80',
+  'santiago': 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1920&q=80',
   'nova york': 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?auto=format&fit=crop&w=1920&q=80',
   'new york': 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?auto=format&fit=crop&w=1920&q=80',
   'miami': 'https://images.unsplash.com/photo-1506966953602-c20cc11f75e3?auto=format&fit=crop&w=1920&q=80',
@@ -44,9 +46,9 @@ const CITY_IMAGE_MAP = {
 };
 
 /**
- * Fallback genérico de paisagem urbana de cidade
+ * Cartão postal de paisagem tropical/urbana padrão para qualquer cidade
  */
-const DEFAULT_CITY_IMAGE = 'https://images.unsplash.com/photo-1477959858617-67f30ac4ce78?auto=format&fit=crop&w=1920&q=80';
+const DEFAULT_CITY_IMAGE = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80';
 
 /**
  * Normaliza o texto removendo acentos e deixando em minúsculas
@@ -61,12 +63,11 @@ function normalizeText(text) {
 }
 
 /**
- * Retorna a URL da imagem de fundo correspondente à cidade informada.
- * Retorna `null` caso a cidade esteja em branco ou não tenha sido informada.
+ * Retorna a URL da imagem de cartão postal correspondente à cidade informada.
  */
 export function getCityImageUrl(cityInput) {
   if (!cityInput || !cityInput.trim()) {
-    return null;
+    return DEFAULT_CITY_IMAGE;
   }
 
   const clean = normalizeText(cityInput);
@@ -79,6 +80,5 @@ export function getCityImageUrl(cityInput) {
     }
   }
 
-  // Se uma cidade foi informada mas não está no mapa curado, usa a paisagem de cidade padrão
   return DEFAULT_CITY_IMAGE;
 }
