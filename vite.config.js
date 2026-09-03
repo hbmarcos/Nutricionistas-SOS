@@ -87,6 +87,37 @@ function apiDevServerPlugin() {
           }
         });
       });
+
+      // Endpoint: /api/gerar-restaurantes
+      server.middlewares.use('/api/gerar-restaurantes', async (req, res) => {
+        if (!handleCorsAndMethod(req, res)) return;
+
+        let bodyData = '';
+        req.on('data', (chunk) => {
+          bodyData += chunk;
+        });
+
+        req.on('end', async () => {
+          try {
+            const body = bodyData ? JSON.parse(bodyData) : {};
+            const env = loadEnv('', process.cwd(), '');
+            const apiKey = env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
+
+            const { generateRestaurantsWithGemini } = await import('./api/gerar-restaurantes.js');
+            const { paciente } = body;
+
+            const restaurantes = await generateRestaurantsWithGemini(paciente, apiKey);
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ success: true, data: restaurantes }));
+          } catch (err) {
+            console.error('[Vite Dev API] Erro ao gerar restaurantes:', err);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ success: false, error: err.message || 'Erro ao gerar restaurantes com IA.' }));
+          }
+        });
+      });
     }
   };
 }

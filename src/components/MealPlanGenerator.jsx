@@ -79,6 +79,7 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
 
   // Estados de IA e Loading
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingRestaurants, setIsGeneratingRestaurants] = useState(false);
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -159,6 +160,53 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
     }
   };
 
+  // Gera apenas as indicações de 3 restaurantes na cidade do paciente
+  const handleGenerateRestaurantsOnly = async () => {
+    if (!patient || !currentPlan) return;
+    setIsGeneratingRestaurants(true);
+    try {
+      const response = await fetch('/api/gerar-restaurantes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ paciente: patient })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success || !Array.isArray(result.data)) {
+        throw new Error(result.error || 'Erro ao gerar as indicações de restaurantes.');
+      }
+
+      const newRestaurants = result.data;
+      while (newRestaurants.length < 3) {
+        newRestaurants.push('');
+      }
+
+      const newWeekly = [...currentPlan.plano_semanal];
+      newWeekly.forEach((day, idx) => {
+        const currentRest = day.refeicoes.restaurantes_jantar || [];
+        const hasExisting = currentRest.some((r) => typeof r === 'string' && r.trim());
+        if (idx === activeDayIndex || !hasExisting) {
+          day.refeicoes = {
+            ...day.refeicoes,
+            restaurantes_jantar: [...newRestaurants]
+          };
+        }
+      });
+
+      setCurrentPlan({ plano_semanal: newWeekly });
+      setSuccessToast('✨ 3 indicações de restaurantes na cidade geradas com sucesso!');
+      setTimeout(() => setSuccessToast(''), 4000);
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Não foi possível buscar os restaurantes no momento.');
+    } finally {
+      setIsGeneratingRestaurants(false);
+    }
+  };
+
   // Criação de plano manual (fallback ou escolha do usuário)
   const handleCreateManualPlan = () => {
     setErrorToast(null);
@@ -169,7 +217,7 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
     }, 100);
   };
 
-  // Normaliza a estrutura para garantir 7 dias e 5 refeições
+  // Normaliza a estrutura para garantir 7 dias, 5 refeições e 3 restaurantes
   const normalizePlanStructure = (rawPlan) => {
     const rawWeekly = rawPlan.plano_semanal || [];
     const fullPlan = DIAS_SEMANA.map((diaNome, idx) => {
@@ -196,6 +244,10 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
       if (!Array.isArray(restJantar)) {
         restJantar = typeof restJantar === 'string' ? [restJantar] : [];
       }
+      restJantar = restJantar.map((r) => (typeof r === 'string' ? r : ''));
+      while (restJantar.length < 3) {
+        restJantar.push('');
+      }
       refeicoes.restaurantes_jantar = restJantar;
 
       return {
@@ -205,6 +257,23 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
     });
 
     return { plano_semanal: fullPlan };
+  };
+
+  // Atualiza um input de restaurante específico
+  const handleRestaurantChange = (dayIdx, restIdx, value) => {
+    if (!currentPlan) return;
+    const newWeekly = [...currentPlan.plano_semanal];
+    const currentDay = { ...newWeekly[dayIdx] };
+    const currentRest = [...(currentDay.refeicoes.restaurantes_jantar || ['', '', ''])];
+    currentRest[restIdx] = value;
+
+    currentDay.refeicoes = {
+      ...currentDay.refeicoes,
+      restaurantes_jantar: currentRest
+    };
+
+    newWeekly[dayIdx] = currentDay;
+    setCurrentPlan({ plano_semanal: newWeekly });
   };
 
   // Atualiza um input específico de opção de refeição
@@ -663,41 +732,53 @@ export default function MealPlanGenerator({ patient, plans = [], onPlanSaved }) 
                       {/* Bloco exclusivo para Restaurantes no Jantar */}
                       {refConfig.key === 'jantar' && (
                         <div className="dinner-restaurants-block">
-                          <div className="dinner-restaurants-header">
-                            <UtensilsCrossed size={16} className="text-indigo-600" />
-                            <span className="dinner-restaurants-title">Restaurantes na Cidade para o Jantar</span>
-                            {patient?.cidade && (
-                              <span className="city-pill-tag">
-                                <MapPin size={11} /> {patient.cidade}
-                              </span>
-                            )}
+                          <div className="dinner-restaurants-header flex-between">
+                            <div className="flex-align-gap">
+                              <UtensilsCrossed size={16} className="text-indigo-600" />
+                              <span className="dinner-restaurants-title">Restaurantes na Cidade para o Jantar</span>
+                              {patient?.cidade && (
+                                <span className="city-pill-tag">
+                                  <MapPin size={11} /> {patient.cidade}
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              className="btn-ai-sparkle-sm"
+                              onClick={handleGenerateRestaurantsOnly}
+                              disabled={isGeneratingRestaurants}
+                              title="Buscar/Sugerir 3 restaurantes na cidade do paciente com IA"
+                            >
+                              <Sparkles size={13} className={isGeneratingRestaurants ? 'spin' : ''} />
+                              <span>{isGeneratingRestaurants ? 'Buscando...' : '✨ Indicar com IA'}</span>
+                            </button>
                           </div>
-                          {Array.isArray(activeDay.refeicoes.restaurantes_jantar) &&
-                          activeDay.refeicoes.restaurantes_jantar.length > 0 ? (
-                            <ul className="dinner-restaurants-list">
-                              {activeDay.refeicoes.restaurantes_jantar.map((rest, rIdx) => (
-                                <li key={rIdx} className="restaurant-item-row">
-                                  <span className="restaurant-number">{rIdx + 1}</span>
-                                  <span className="restaurant-text">{rest}</span>
-                                  {typeof rest === 'string' && rest.trim() && (
-                                    <button
-                                      type="button"
-                                      className="btn-recipe-suggest-sm"
-                                      onClick={() => setRecipePrato(rest)}
-                                      title="Ver sugestão/receita deste prato com IA"
-                                    >
-                                      <ChefHat size={12} />
-                                      <span>Receita</span>
-                                    </button>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="no-restaurants-hint">
-                              Gere o plano com IA para obter 3 opções de restaurantes na cidade do paciente.
-                            </p>
-                          )}
+
+                          <div className="dinner-restaurants-inputs">
+                            {(activeDay.refeicoes.restaurantes_jantar || ['', '', '']).map((rest, rIdx) => (
+                              <div key={rIdx} className="restaurant-input-row">
+                                <span className="restaurant-number">{rIdx + 1}</span>
+                                <input
+                                  type="text"
+                                  className="form-control-input restaurant-option-input"
+                                  placeholder={`Restaurante ${rIdx + 1} na cidade - Prato saudável...`}
+                                  value={rest}
+                                  onChange={(e) => handleRestaurantChange(activeDayIndex, rIdx, e.target.value)}
+                                />
+                                {typeof rest === 'string' && rest.trim() && (
+                                  <button
+                                    type="button"
+                                    className="btn-recipe-suggest-sm"
+                                    onClick={() => setRecipePrato(rest)}
+                                    title="Ver receita do prato sugerido com IA"
+                                  >
+                                    <ChefHat size={12} />
+                                    <span>Receita</span>
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
